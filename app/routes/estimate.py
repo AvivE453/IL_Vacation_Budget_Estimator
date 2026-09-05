@@ -31,7 +31,7 @@ def estimate():
         except ValueError:
             budget_amount_usd = budget_amount if budget_currency == "USD" else None
 
-        estimates = estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd, hotel_tier)
+        estimates, has_missing_data = estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd, hotel_tier)
         # estimate_all_destinations returns either all-exact or all-approximate
         # rows, never a mix.
         exact_dates_only = bool(estimates) and (
@@ -76,6 +76,7 @@ def estimate():
     return render_template(
         "results.html",
         estimates=display_estimates,
+        has_missing_data=has_missing_data,
         exact_dates_only=exact_dates_only,
         display_currency=display_currency,
         budget_amount_display=budget_amount_display,

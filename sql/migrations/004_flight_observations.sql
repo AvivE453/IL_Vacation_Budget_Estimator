@@ -20,10 +20,11 @@ CREATE TABLE flight_price_observations (
     number_of_stops      SMALLINT CHECK (number_of_stops >= 0),
     airline_code         VARCHAR(3),
     observed_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    source               TEXT NOT NULL DEFAULT 'travelpayouts',
     CONSTRAINT chk_return_after_depart CHECK (return_date IS NULL OR return_date > depart_date),
     CONSTRAINT uq_flight_obs UNIQUE (destination_id, origin_iata, depart_date, return_date, observed_at, airline_code, number_of_stops)
 );
 
-CREATE INDEX idx_flight_obs_route_date ON flight_price_observations (destination_id, depart_date, observed_at DESC);
-CREATE INDEX idx_flight_obs_observed_at ON flight_price_observations (observed_at);
+
+-- Used by estimate_all_destinations's latest_flight CTE to find flights near
+-- the requested dates -- the core query behind every /estimate request.
+CREATE INDEX idx_flight_obs_depart_date ON flight_price_observations(depart_date);

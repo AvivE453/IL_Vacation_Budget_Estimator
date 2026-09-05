@@ -19,12 +19,12 @@
 
     <label>
       Departure date
-      <input type="date" name="depart_date" value="{{ default_depart_date }}" required>
+      <input type="date" id="depart_date" name="depart_date" value="{{ default_depart_date }}" required>
     </label>
 
     <label>
       Return date
-      <input type="date" name="return_date" value="{{ default_return_date }}" required>
+      <input type="date" id="return_date" name="return_date" value="{{ default_return_date }}" min="{{ min_return_date }}" required>
     </label>
 
     <label>
@@ -53,4 +53,17 @@
     <button type="submit" class="btn">Estimate</button>
   </form>
 </div>
+
+<script>
+  // return_date's "min" is rendered server-side as depart_date+1 (works even
+  // before this script runs). This just keeps it in sync if the user changes
+  // depart_date afterwards -- the browser's own date picker then refuses to
+  // let return_date go below that. Server still re-validates independently
+  // in app/routes/estimate.py either way.
+  document.getElementById("depart_date").addEventListener("change", function () {
+    const d = new Date(this.value + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    document.getElementById("return_date").min = d.toISOString().slice(0, 10);
+  });
+</script>
 {% endblock %}

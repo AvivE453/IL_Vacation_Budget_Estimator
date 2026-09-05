@@ -2,7 +2,7 @@
 # exact-date lookup - it rarely has data for the exact dates requested. So
 # the nearest observed date pair within this many days is used instead of an
 # exact match. beyond that, it's treated as missing data.
-MAX_DATE_DRIFT_DAYS = 7
+MAX_DATE_DRIFT_DAYS = 4
 
 
 def list_origin_airports(cur):
@@ -37,15 +37,24 @@ HOTEL_TIERS = ("budget", "average", "luxury")
 # sample was too small to split into tiers - real missing data, not a
 # fallback average.
 #
-# Returns only viable destinations (flight + hotel both on file, within
-# budget if given).
+# Returns (estimates, has_missing_data): estimates is the viable destinations
+# (flight + hotel both on file, within budget if given); has_missing_data is
+# True only when NOT ONE active destination has both a flight and a hotel on
+# file - i.e. the dataset itself came up empty for these dates, before budget
+# or exact-date filtering ever ran. That's the distinction the caller needs
+# when estimates ends up empty: "genuinely no data" (this flag is True) vs
+# "we had candidates, your budget or the exact-date rule excluded them all"
+# (this flag is False). It is NOT "some destination is missing data" - with 45
+# destinations that would be True almost always, and useless to act on.
 #
 # Uses WITH (CTEs) purely for readability over nested subqueries - on
 # Postgres 16 a single-use CTE inlines the same way no performance difference.
 #
 # LEFT JOIN, not JOIN, in the scored CTE below: a destination with no
 # matching flight/hotel must still appear (as NULL) so flight_data_missing/
-# hotel_data_missing can actually be computed for it.
+# hotel_data_missing can actually be computed for it. Filtering on those
+# flags (and on budget) happens in Python below, not in this SQL, precisely
+# so the missing-data rows survive long enough to be counted.
 def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd=None, hotel_tier="average"):
     if hotel_tier not in HOTEL_TIERS:
         raise ValueError(f"hotel_tier must be one of {HOTEL_TIERS}, got {hotel_tier!r}")
@@ -59,7 +68,9 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
                 airline_code
             FROM flight_price_observations
             WHERE origin_iata = %(origin_iata)s
-              AND ABS(depart_date - %(depart_date)s) <= %(max_drift)s
+              -- Sargable BETWEEN so idx_flight_obs_depart_date can narrow this
+              -- scan; return_date and the ORDER BY below aren't indexed.
+              AND depart_date BETWEEN %(depart_date)s - %(max_drift)s AND %(depart_date)s + %(max_drift)s
               AND ABS(return_date - %(return_date)s) <= %(max_drift)s
             ORDER BY destination_id,
                      ABS(depart_date - %(depart_date)s) + ABS(return_date - %(return_date)s),
@@ -102,9 +113,6 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
         )
         SELECT *
         FROM scored
-        WHERE NOT flight_data_missing
-          AND NOT hotel_data_missing
-          AND (%(budget_usd)s IS NULL OR total_estimate_usd <= %(budget_usd)s)
         ORDER BY total_estimate_usd ASC
         """,
         {
@@ -112,18 +120,30 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
             "depart_date": depart_date,
             "return_date": return_date,
             "max_drift": MAX_DATE_DRIFT_DAYS,
-            "budget_usd": budget_amount_usd,
             "hotel_tier": hotel_tier,
         },
     )
+    rows = cur.fetchall()
+
+    viable = [r for r in rows if not r["flight_data_missing"] and not r["hotel_data_missing"]]
+    # True only when NOT ONE active destination has both a flight and a hotel
+    # match at all. This is what lets an empty result be told apart from
+    # budget/exact-date filtering, where viable is non-empty but every
+    # candidate in it still gets excluded downstream.
+    #
+    # Must stay ABOVE the budget filter below: computing it afterwards would
+    # make every over-budget search look like missing data.
+    has_missing_data = len(viable) == 0
+    if budget_amount_usd is not None:
+        viable = [r for r in viable if r["total_estimate_usd"] <= budget_amount_usd]
+
     # If any destination got an exact date match, keep only exact matches;
     # otherwise fall back to everyone's nearest-available date.
-    rows = cur.fetchall()
     exact_matches = [
-        r for r in rows
+        r for r in viable
         if r["flight_out_date"] == depart_date and r["flight_return_date"] == return_date
     ]
-    return exact_matches if exact_matches else rows
+    return (exact_matches if exact_matches else viable), has_missing_data
 
 
 # Logs one search into search_queries; returns its id for insert_search_results
@@ -158,7 +178,8 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
             INSERT INTO search_results
                 (search_query_id, destination_id, estimated_flight_usd, estimated_hotel_usd,
                  estimated_total_usd, within_budget, rank_by_cost, airline_code)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s,
+                    (SELECT airline_code FROM airlines WHERE airline_code = %s))
             """,
             (
                 search_query_id,

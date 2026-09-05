@@ -30,8 +30,6 @@ CREATE TABLE search_queries (
     CONSTRAINT chk_search_queries_return_after_depart CHECK (return_date > depart_date)
 );
 
-CREATE INDEX idx_search_queries_session ON search_queries(session_id, created_at DESC);
-
 CREATE TABLE search_results (
     search_result_id             BIGSERIAL PRIMARY KEY,
     search_query_id               BIGINT NOT NULL REFERENCES search_queries(search_query_id) ON DELETE CASCADE,
@@ -44,4 +42,6 @@ CREATE TABLE search_results (
     airline_code                  VARCHAR(3) REFERENCES airlines(airline_code)
 );
 
+-- Used by get_search_results (/history/<id>) to fetch one search's saved
+-- ranking, and by ON DELETE CASCADE above when a search_queries row is deleted.
 CREATE INDEX idx_search_results_query ON search_results(search_query_id);

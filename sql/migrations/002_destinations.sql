@@ -11,10 +11,7 @@ CREATE TABLE destinations (
     -- Cities with no match are real missing data, surfaced via LEFT JOIN, not hidden.
     hotel_data_city_key         TEXT NOT NULL,
     is_active                   BOOLEAN NOT NULL DEFAULT TRUE,
-    notes                       TEXT,
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_destinations_city_country UNIQUE (city_name, country_code),
     CONSTRAINT chk_hotel_data_city_key_lower CHECK (hotel_data_city_key = lower(hotel_data_city_key))
 );
-
-CREATE INDEX idx_destinations_country ON destinations(country_code);

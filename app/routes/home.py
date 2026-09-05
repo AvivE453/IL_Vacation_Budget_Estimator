@@ -26,4 +26,5 @@ def index():
         destination_count=destination_count,
         default_depart_date=default_depart.isoformat(),
         default_return_date=default_return.isoformat(),
+        min_return_date=(default_depart + datetime.timedelta(days=1)).isoformat(),
     )

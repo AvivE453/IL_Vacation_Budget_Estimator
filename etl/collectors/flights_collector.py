@@ -26,7 +26,7 @@ ORIGIN_IATA = "TLV"
 MONTH_OFFSETS = [0, 1, 2, 3, 6]
 
 # Each result is a full round trip, so this bounds observations per call.
-RESULTS_PER_CALL = 30
+RESULTS_PER_CALL = 40
 
 
 def target_months():

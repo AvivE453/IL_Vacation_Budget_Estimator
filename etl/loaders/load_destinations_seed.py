@@ -20,20 +20,18 @@ def main():
                 cur.execute(
                     """
                     INSERT INTO destinations
-                        (city_name, country_code, iata_code, hotel_data_city_key, notes)
-                    VALUES (%s, %s, %s, %s, %s)
+                        (city_name, country_code, iata_code, hotel_data_city_key)
+                    VALUES (%s, %s, %s, %s)
                     ON CONFLICT (iata_code) DO UPDATE SET
                         city_name = EXCLUDED.city_name,
                         country_code = EXCLUDED.country_code,
-                        hotel_data_city_key = EXCLUDED.hotel_data_city_key,
-                        notes = EXCLUDED.notes
+                        hotel_data_city_key = EXCLUDED.hotel_data_city_key
                     """,
                     (
                         row["city_name"],
                         row["country_code"],
                         row["iata_code"],
                         row["hotel_data_city_key"],
-                        row["notes"] or None,
                     ),
                 )
 

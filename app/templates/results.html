@@ -64,8 +64,12 @@
 </table>
 {% else %}
 <div class="card">
-  <p>No destinations have both a flight and hotel price on file{{ " within your budget" if budget_amount_usd is not none }} for these dates yet.</p>
-  <p>Try different dates, raise the budget, or check <a href="{{ url_for('data_quality.index') }}">Data Quality</a> to see what's missing.</p>
+  {% if has_missing_data %}
+    <p>None of the destinations have both a flight and hotel price on file for these dates at all -- this is missing data, not a result of your budget or date match preference. See <a href="{{ url_for('data_quality.index') }}">Data Quality</a> for the full missing-data picture.</p>
+  {% else %}
+    <p>No destinations have both a flight and hotel price on file{{ " within your budget" if budget_amount_usd is not none }} for these dates yet.</p>
+    <p>Try different dates, raise the budget, or check <a href="{{ url_for('data_quality.index') }}">Data Quality</a> to see what's missing.</p>
+  {% endif %}
 </div>
 {% endif %}
 

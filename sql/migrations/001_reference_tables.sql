@@ -15,8 +15,6 @@ CREATE TABLE airports (
     longitude      NUMERIC(9,6)
 );
 
-CREATE INDEX idx_airports_country ON airports(country_code);
-
 -- IATA airline code -> display name (etl/loaders/load_airlines.py, from
 -- Travelpayouts' public reference). No FK from flight_price_observations 
 -- an unrecognized code just falls back to the raw code in the UI.

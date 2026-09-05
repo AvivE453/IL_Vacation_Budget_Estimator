@@ -8,3 +8,6 @@ venv/
 report/*.pdf
 downloads/
 collector.log
+CLAUDE.md
+Project_Report.pdf
+.vscode/
