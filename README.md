@@ -21,7 +21,7 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
    - `FLASK_SECRET_KEY` -- any random string (`uv run python -c "import secrets; print(secrets.token_hex(32))"`); the app refuses to start without it.
    - `TRAVELPAYOUTS_TOKEN` and `TRAVELPAYOUTS_MARKER` -- register free at
      https://www.travelpayouts.com/programs/100/tools/api (needed for flights only).
-4. **Apply schema**: `uv run python -m etl.loaders.run_migrations`
+4. **Apply schema**: `uv run python -m etl.loaders.run_migrations` -- safe to rerun; it records applied files in `schema_migrations` and runs only new ones.
 5. **Load reference data**:
    ```
    uv run python -m etl.loaders.load_airports
