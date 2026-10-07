@@ -257,7 +257,10 @@ def get_data_quality_report(cur):
             (SELECT COUNT(*)
              FROM flight_price_observations AS f
              WHERE f.destination_id = d.destination_id) AS flight_obs_count,
-            hp.sample_size AS hotel_sample_size
+            hp.sample_size AS hotel_sample_size,
+            -- hotel_prices is one refreshed snapshot per city, not a time
+            -- series, so its age is the only sign of how stale a price is.
+            CURRENT_DATE - hp.loaded_at::date AS hotel_price_age_days
         FROM destinations AS d
         JOIN countries AS c ON c.country_code = d.country_code
         LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key

@@ -6,7 +6,7 @@
 <h2>Per-destination coverage</h2>
 <table>
   <thead>
-    <tr><th>City</th><th>Country</th><th>Flight observations</th><th>Hotels in our search</th></tr>
+    <tr><th>City</th><th>Country</th><th>Flight observations</th><th>Hotels in our search</th><th>Hotel price age</th></tr>
   </thead>
   <tbody>
     {% for row in coverage %}
@@ -15,6 +15,12 @@
       <td>{{ row.country_name }}</td>
       <td>{{ row.flight_obs_count }}</td>
       <td>{{ row.hotel_sample_size if row.hotel_sample_size is not none else "-" }}</td>
+      <td>
+        {%- if row.hotel_price_age_days is none -%} -
+        {%- elif row.hotel_price_age_days == 0 -%} today
+        {%- else -%} {{ row.hotel_price_age_days }} day{{ "s" if row.hotel_price_age_days != 1 }} ago
+        {%- endif -%}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

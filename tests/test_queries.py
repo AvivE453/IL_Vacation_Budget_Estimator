@@ -44,6 +44,16 @@ def test_data_quality_report_counts_per_destination(cur):
     assert rows["Madrid"]["hotel_sample_size"] is None
 
 
+def test_data_quality_report_shows_hotel_price_age_in_days(cur):
+    add_hotel(cur, "barcelona", avg_usd=150)
+    cur.execute("UPDATE hotel_prices SET loaded_at = now() - interval '10 days'")
+
+    rows = {r["city_name"]: r for r in get_data_quality_report(cur)}
+
+    assert rows["Barcelona"]["hotel_price_age_days"] == 10
+    assert rows["Madrid"]["hotel_price_age_days"] is None
+
+
 def test_collection_volume_groups_by_observation_day(cur):
     day1 = datetime.datetime(2030, 1, 1, 12, tzinfo=datetime.UTC)
     day2 = datetime.datetime(2030, 1, 2, 12, tzinfo=datetime.UTC)
