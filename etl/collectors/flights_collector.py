@@ -6,7 +6,7 @@
 # Each API result is a complete round trip: (one combined price) ,
 # correctly-ordered departure_at/return_at, and a real airline code + flight number.
 #
-# Run with: python -m etl.collectors.flights_collector
+# Run with: uv run python -m etl.collectors.flights_collector
 
 import datetime
 

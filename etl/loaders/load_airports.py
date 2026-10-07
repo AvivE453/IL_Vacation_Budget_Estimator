@@ -1,6 +1,6 @@
 # One-time load of sql/seed/countries_seed.csv and sql/seed/airports_seed.csv.
 #
-# Run with: python -m etl.loaders.load_airports
+# Run with: uv run python -m etl.loaders.load_airports
 
 import csv
 import pathlib

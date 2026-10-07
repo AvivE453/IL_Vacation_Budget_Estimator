@@ -1,6 +1,6 @@
 # One-time load of sql/seed/destinations_seed.csv into the destinations crosswalk table.
 #
-# Run with: python -m etl.loaders.load_destinations_seed
+# Run with: uv run python -m etl.loaders.load_destinations_seed
 
 import csv
 import pathlib

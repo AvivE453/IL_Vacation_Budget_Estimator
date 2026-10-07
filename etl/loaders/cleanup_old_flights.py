@@ -1,7 +1,7 @@
 # Deletes flight_price_observations rows whose return_date is more than
 # RETENTION_MONTHS in the past -this keeps the table from growing unbounded.
 #
-# Run with: python -m etl.loaders.cleanup_old_flights
+# Run with: uv run python -m etl.loaders.cleanup_old_flights
 
 from etl.common.db import get_conn
 

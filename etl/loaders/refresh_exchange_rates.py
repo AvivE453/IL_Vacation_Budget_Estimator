@@ -1,7 +1,7 @@
 # Refreshes exchange_rates from the free, no-key Frankfurter API (https://www.frankfurter.dev).
 # Intended to run weekly for a real budget estimate.
 
-# Run with: python -m etl.loaders.refresh_exchange_rates
+# Run with: uv run python -m etl.loaders.refresh_exchange_rates
 
 import requests
 

@@ -5,7 +5,7 @@
 # not an append-only time series - SerpApi's free tier caps at 250 searches/month,
 # too little for repeated same-day snapshots.
 #
-# Run with: python -m etl.collectors.hotels_collector
+# Run with: uv run python -m etl.collectors.hotels_collector
 
 import datetime
 
