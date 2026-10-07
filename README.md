@@ -9,7 +9,8 @@ sources that key destinations in incompatible ways.
 ## Data sources
 
 - **Flights**: [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/) (`v3/prices_for_dates`) -- cached real-user round-trip searches by IATA origin/destination + month. Live, collected repeatedly by running the collector manually -- this is the project's time-series data.
-- **Hotels**: [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api) -- a live current-price quote per destination (free tier: 250 searches/month, run manually, not on cron). *(Originally planned against the live Hotellook API, which shut down permanently on 2025-10-15 -- confirmed via Travelpayouts' own support docs. A static CSV (Gabor's Data Analysis "hotels-europe" dataset) was used as a temporary stopgap, then removed entirely once SerpApi was found and gave full coverage across all 45 destinations with no city-name-matching problem.)*
+- **Hotels**: [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api) -- a live current-price quote per destination (free tier: 250 searches/month, run manually, not on cron). *(Originally planned against the live Hotellook API, which shut down permanently on 2025-10-15 -- confirmed via Travelpayouts' own support docs. A static CSV (Gabor's Data Analysis "hotels-europe" dataset) was used as a temporary stopgap, then removed entirely once SerpApi was found and gave full coverage across all 45 destinations of the time with no city-name-matching problem.)*
+- **Destinations**: 104 hand-picked cities, chosen from where cached real searches out of Tel Aviv actually go (`uv run python -m etl.tools.discover_destinations`) and filtered to actual vacation destinations for Israelis.
 - **Airports**: a small curated subset (not the full OurAirports dump) of real IATA airport data.
 
 ## Setup
@@ -31,7 +32,7 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
    uv run python -m etl.loaders.load_destinations_seed
    uv run python -m etl.loaders.refresh_exchange_rates
    ```
-6. **Load hotel prices**: register free at https://serpapi.com and fill in `SERPAPI_KEY` in `.env`, then `uv run python -m etl.collectors.hotels_collector` (queries all active destinations -- mind the 250 searches/month free-tier cap: each result page is one search, so with `PAGES = 5` in that module a full 45-destination run costs ~225 searches).
+6. **Load hotel prices**: register free at https://serpapi.com and fill in `SERPAPI_KEY` in `.env`, then `uv run python -m etl.collectors.hotels_collector` (queries all active destinations -- mind the 250 searches/month free-tier cap: each result page is one search, so with `PAGES = 5` in that module a full run over all 104 destinations would cost ~520 searches, more than the monthly cap).
 7. **Run the flight collector, repeatedly:**
    ```
    uv run python -m etl.collectors.flights_collector
