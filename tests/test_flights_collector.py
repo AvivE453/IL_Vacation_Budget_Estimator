@@ -61,20 +61,8 @@ def test_inserted_counter_ignores_duplicate_rows(cur, monkeypatch):
     assert counters["inserted"] == 1
 
 
-# main() opens its own connection and commits for real (that's what's under
-# test), so it's pointed at the test database and cleaned up afterwards.
-@pytest.fixture()
-def collector_db(test_db_url, monkeypatch):
-    monkeypatch.setattr("etl.common.db.DB_URL", test_db_url)
+def test_destinations_collected_before_a_crash_are_kept(committing_db, monkeypatch):
     monkeypatch.setattr(flights_collector, "TRAVELPAYOUTS_TOKEN", "test-token")
-    yield test_db_url
-    conn = psycopg2.connect(test_db_url)
-    with conn, conn.cursor() as cur:
-        cur.execute("DELETE FROM flight_price_observations")
-    conn.close()
-
-
-def test_destinations_collected_before_a_crash_are_kept(collector_db, monkeypatch):
     destinations_seen = []
 
     def fetch(origin, destination, month):
@@ -89,7 +77,7 @@ def test_destinations_collected_before_a_crash_are_kept(collector_db, monkeypatc
     with pytest.raises(RuntimeError):
         flights_collector.main()
 
-    conn = psycopg2.connect(collector_db)
+    conn = psycopg2.connect(committing_db)
     with conn, conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM flight_price_observations")
         assert cur.fetchone()[0] == 1

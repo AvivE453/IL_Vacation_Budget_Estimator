@@ -32,7 +32,7 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
    uv run python -m etl.loaders.load_destinations_seed
    uv run python -m etl.loaders.refresh_exchange_rates
    ```
-6. **Load hotel prices**: register free at https://serpapi.com and fill in `SERPAPI_KEY` in `.env`, then `uv run python -m etl.collectors.hotels_collector` (queries all active destinations -- mind the 250 searches/month free-tier cap: each result page is one search, so with `PAGES = 5` in that module a full run over all 104 destinations would cost ~520 searches, more than the monthly cap).
+6. **Load hotel prices**: register free at https://serpapi.com and fill in `SERPAPI_KEY` in `.env`, then `uv run python -m etl.collectors.hotels_collector [--max-searches N]`. The free tier is 250 searches/month and each city costs one search (one result page, ~20 hotels), so each run first asks SerpApi's free Account API how many searches are left, then refreshes only as many cities as that and `--max-searches` (default 120) allow -- cities with no price first, then the stalest.
 7. **Run the flight collector, repeatedly:**
    ```
    uv run python -m etl.collectors.flights_collector

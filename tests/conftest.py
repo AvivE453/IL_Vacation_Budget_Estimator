@@ -58,6 +58,20 @@ def test_db_url(admin_conn):
     return url
 
 
+# For code that opens its own connection through etl.common.db and commits for
+# real (the collectors' main()): points it at the test database, and deletes
+# what it wrote afterwards since there's no transaction to roll back.
+@pytest.fixture()
+def committing_db(test_db_url, monkeypatch):
+    monkeypatch.setattr("etl.common.db.DB_URL", test_db_url)
+    yield test_db_url
+    conn = psycopg2.connect(test_db_url)
+    with conn, conn.cursor() as c:
+        c.execute("DELETE FROM flight_price_observations")
+        c.execute("DELETE FROM hotel_prices")
+    conn.close()
+
+
 @pytest.fixture()
 def cur(test_db_url):
     conn = psycopg2.connect(test_db_url)

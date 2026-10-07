@@ -5,17 +5,24 @@
 # not an append-only time series - SerpApi's free tier caps at 250 searches/month,
 # too little for repeated same-day snapshots.
 #
-# Run with: uv run python -m etl.collectors.hotels_collector
+# Each run checks how many searches the account has left (SerpApi's Account
+# API, which is free), then refreshes only as many cities as that and its own
+# --max-searches budget allow: cities with no price first, then the stalest.
+#
+# Run with: uv run python -m etl.collectors.hotels_collector [--max-searches N]
 
+import argparse
 import datetime
 
+import psycopg2.extras
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from etl.common.config import SERPAPI_KEY
-from etl.common.db import get_cursor
+from etl.common.db import get_conn
 
 SEARCH_URL = "https://serpapi.com/search"
+ACCOUNT_URL = "https://serpapi.com/account.json"
 
 # One representative nightly rate per city, not date-specific - the app
 # multiplies this by however many nights the user's search needs.
@@ -29,8 +36,14 @@ TIER_SAMPLE_SIZE = 10
 
 # Result pages to fetch per destination. Each page is a separate SerpApi
 # search (~20 properties) and costs 1:1 against the 250/month quota for a
-# genuinely new query.
-PAGES = 5
+# genuinely new query. 1 page (~20 hotels) keeps a full refresh of ~100
+# cities within the monthly quota; budget/luxury tiers are then the cheaper
+# and pricier halves of the sample. Pages are chained by next_page_token, so
+# raising this later costs PAGES searches per city again, not just the new pages.
+PAGES = 1
+
+# Default cap per run, leaving room in the 250/month for retries and testing.
+DEFAULT_MAX_SEARCHES_PER_RUN = 120
 
 
 # Returns (budget_tier_avg, luxury_tier_avg) from a price list of any
@@ -82,29 +95,44 @@ def fetch_hotel_properties(city_query, check_in_date, check_out_date):
     return properties
 
 
-def fetch_destinations(cur):
+# Doesn't count against the search quota.
+def fetch_searches_left():
+    resp = requests.get(ACCOUNT_URL, params={"api_key": SERPAPI_KEY}, timeout=20)
+    resp.raise_for_status()
+    return resp.json()["total_searches_left"]
+
+
+# The cities most in need of a refresh: never priced first, then oldest price.
+def pick_destinations(cur, limit):
     cur.execute(
         """
-        SELECT destination_id, city_name, hotel_data_city_key
-        FROM destinations
-        WHERE is_active
-        ORDER BY destination_id
-        """
+        SELECT d.destination_id, d.city_name, d.hotel_data_city_key
+        FROM destinations AS d
+        LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
+        WHERE d.is_active
+        ORDER BY hp.loaded_at ASC NULLS FIRST, d.destination_id
+        LIMIT %s
+        """,
+        (limit,),
     )
     return cur.fetchall()
 
 
-def main():
+def main(max_searches=DEFAULT_MAX_SEARCHES_PER_RUN):
     if not SERPAPI_KEY:
         raise SystemExit("SERPAPI_KEY is not set -- register free at serpapi.com and set it in .env")
+
+    searches_left = fetch_searches_left()
+    n_cities = min(max_searches, searches_left) // PAGES
+    print(f"{searches_left} searches left this month; refreshing up to {n_cities} cities at {PAGES} page(s) each")
 
     check_in = datetime.date.today() + datetime.timedelta(days=CHECK_IN_OFFSET_DAYS)
     check_out = check_in + datetime.timedelta(days=STAY_NIGHTS)
 
     n_updated, n_skipped_no_results, n_errors = 0, 0, 0
 
-    with get_cursor() as cur:
-        destinations = fetch_destinations(cur)
+    with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        destinations = pick_destinations(cur, n_cities)
 
         for dest in destinations:
             try:
@@ -152,6 +180,9 @@ def main():
                     luxury_tier_avg,
                 ),
             )
+            # Commit per city: each one cost a paid search, so a crash later in
+            # the run mustn't throw it away.
+            conn.commit()
             n_updated += 1
 
     print(f"updated {n_updated} destinations "
@@ -159,4 +190,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Refresh hotel prices from SerpApi within the search quota.")
+    parser.add_argument("--max-searches", type=int, default=DEFAULT_MAX_SEARCHES_PER_RUN)
+    main(parser.parse_args().max_searches)
