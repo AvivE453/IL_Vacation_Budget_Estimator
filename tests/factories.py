@@ -37,3 +37,35 @@ def add_hotel(cur, city_key, avg_usd, budget_usd=None, luxury_usd=None, sample_s
         """,
         (city_key.title(), city_key, avg_usd, budget_usd, luxury_usd, sample_size),
     )
+
+
+def add_exchange_rate(cur, currency_code, usd_per_unit):
+    cur.execute(
+        "INSERT INTO exchange_rates (currency_code, usd_per_unit, as_of_date) VALUES (%s, %s, CURRENT_DATE)",
+        (currency_code, usd_per_unit),
+    )
+
+
+# A past /estimate search as /history shows it: one search_queries row plus
+# one saved result per destination.
+def add_saved_search(cur, session_id, destination_iatas=("BCN",), budget_currency="USD"):
+    cur.execute(
+        """
+        INSERT INTO search_queries
+            (session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency)
+        VALUES (%s, 'TLV', '2030-06-01', '2030-06-08', 5000, %s)
+        RETURNING search_query_id
+        """,
+        (session_id, budget_currency),
+    )
+    search_query_id = cur.fetchone()["search_query_id"]
+    cur.execute(
+        """
+        INSERT INTO search_results (search_query_id, destination_id, estimated_total_usd, within_budget)
+        SELECT %s, destination_id, 1000, true
+        FROM destinations
+        WHERE iata_code = ANY(%s)
+        """,
+        (search_query_id, list(destination_iatas)),
+    )
+    return search_query_id

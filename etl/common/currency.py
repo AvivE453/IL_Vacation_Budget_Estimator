@@ -1,10 +1,16 @@
-# Convert a native-currency amount to USD using the exchange_rates table.
+# Currency conversion against the exchange_rates table. Everything is stored
+# internally in USD; other currencies exist for the user's budget and display.
 #
-# Raises ValueError if no rate is on file - callers should skip/log the
-# observation rather than silently inserting an unconverted amount.
-def to_usd(cur, amount, currency_code):
+# Look the rate up once with get_usd_per_unit(), then convert as many amounts
+# as needed with to_usd()/from_usd() - they don't touch the database, so a page
+# showing N amounts runs one rate query, not N.
+
+
+# Raises ValueError if no rate is on file - callers decide the fallback
+# rather than silently using an unconverted amount.
+def get_usd_per_unit(cur, currency_code):
     if currency_code == "USD":
-        return round(float(amount), 2)
+        return 1.0
 
     cur.execute(
         "SELECT usd_per_unit FROM exchange_rates WHERE currency_code = %s",
@@ -14,24 +20,12 @@ def to_usd(cur, amount, currency_code):
     if row is None:
         raise ValueError(f"no exchange rate on file for currency {currency_code!r}")
 
-    usd_per_unit = row["usd_per_unit"] if isinstance(row, dict) else row[0]
-    return round(float(amount) * float(usd_per_unit), 2)
+    return float(row["usd_per_unit"] if isinstance(row, dict) else row[0])
 
 
-# Convert a USD amount to another currency using the exchange_rates
-# table - the inverse of to_usd(). Everything is stored internally in USD
-# this exists purely for display purposes.
-def from_usd(cur, amount_usd, currency_code):
-    if currency_code == "USD":
-        return round(float(amount_usd), 2)
+def to_usd(amount, usd_per_unit):
+    return round(float(amount) * usd_per_unit, 2)
 
-    cur.execute(
-        "SELECT usd_per_unit FROM exchange_rates WHERE currency_code = %s",
-        (currency_code,),
-    )
-    row = cur.fetchone()
-    if row is None:
-        raise ValueError(f"no exchange rate on file for currency {currency_code!r}")
 
-    usd_per_unit = row["usd_per_unit"] if isinstance(row, dict) else row[0]
-    return round(float(amount_usd) / float(usd_per_unit), 2)
+def from_usd(amount_usd, usd_per_unit):
+    return round(float(amount_usd) / usd_per_unit, 2)

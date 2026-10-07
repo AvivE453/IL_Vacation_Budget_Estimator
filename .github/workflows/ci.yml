@@ -26,6 +26,8 @@ jobs:
 
     env:
       DB_URL: postgresql://vacation:vacation@localhost:5432/vacation_budget
+      # The app refuses to start without one; the route tests only need it to exist.
+      FLASK_SECRET_KEY: ci-only-not-a-secret
 
     steps:
       - name: Check out the code
