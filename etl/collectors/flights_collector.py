@@ -27,7 +27,24 @@ ORIGIN_IATA = "TLV"
 MONTH_OFFSETS = [0, 1, 2, 3, 6]
 
 # Each result is a full round trip, so this bounds observations per call.
-RESULTS_PER_CALL = 40
+# 1000 is the API's maximum. It used to be 40, which silently dropped most of
+# the cache: a single destination/month has returned up to ~270 round trips.
+RESULTS_PER_CALL = 1000
+
+# Travelpayouts allows 600 requests per minute (X-Rate-Limit: 600, verified
+# from real response headers - not the 200/hour older docs claimed).
+DEFAULT_RATE_LIMIT_RESET_SECONDS = 60
+backoff_on_other_errors = wait_exponential(multiplier=1, min=1, max=10)
+
+
+# A 429 says exactly when the rate-limit window resets (X-Rate-Limit-Reset,
+# in seconds), so wait that long instead of a short backoff that would just
+# hit the limit again. Anything else backs off exponentially.
+def wait_before_retry(retry_state):
+    error = retry_state.outcome.exception()
+    if isinstance(error, requests.HTTPError) and error.response.status_code == 429:
+        return int(error.response.headers.get("X-Rate-Limit-Reset", DEFAULT_RATE_LIMIT_RESET_SECONDS))
+    return backoff_on_other_errors(retry_state)
 
 
 def target_months():
@@ -41,7 +58,7 @@ def target_months():
     return months
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
+@retry(stop=stop_after_attempt(3), wait=wait_before_retry, reraise=True)
 def fetch_round_trips(origin, destination, target_month):
     resp = requests.get(
         PRICES_URL,

@@ -3,6 +3,7 @@
 
 import psycopg2
 import pytest
+import requests
 
 from etl.collectors import flights_collector
 
@@ -17,6 +18,35 @@ ROUND_TRIP = {
 
 def new_counters():
     return {"inserted": 0, "skipped_no_offer": 0, "errors": 0}
+
+
+class FakeResponse:
+    def __init__(self, status_code, headers=None, body=None):
+        self.status_code = status_code
+        self.headers = headers or {}
+        self._body = body or {}
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code}", response=self)
+
+    def json(self):
+        return self._body
+
+
+def test_rate_limited_request_waits_for_the_window_to_reset(monkeypatch):
+    responses = iter([
+        FakeResponse(429, headers={"X-Rate-Limit-Reset": "7"}),
+        FakeResponse(200, body={"data": [ROUND_TRIP]}),
+    ])
+    monkeypatch.setattr(flights_collector.requests, "get", lambda *args, **kwargs: next(responses))
+    slept = []
+    monkeypatch.setattr(flights_collector.fetch_round_trips.retry, "sleep", slept.append)
+
+    payload = flights_collector.fetch_round_trips("TLV", "BCN", "2030-06")
+
+    assert payload == {"data": [ROUND_TRIP]}
+    assert slept == [7]
 
 
 def test_inserted_counter_ignores_duplicate_rows(cur, monkeypatch):
