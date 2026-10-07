@@ -6,7 +6,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, which moves to a new Ubuntu release on
+    # GitHub's schedule; upgrading the runner should be our own deliberate commit.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     services:
