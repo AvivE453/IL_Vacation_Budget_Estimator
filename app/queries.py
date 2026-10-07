@@ -148,14 +148,22 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
 
 # Logs one search into search_queries; returns its id for insert_search_results
 # and the /history "saved ranking" link.
-def insert_search_query(cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier="average", exact_dates_only=None):
+def insert_search_query(
+    cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency,
+    hotel_tier="average", exact_dates_only=None,
+):
     cur.execute(
         """
-        INSERT INTO search_queries (session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, exact_dates_only)
+        INSERT INTO search_queries
+            (session_id, origin_iata, depart_date, return_date,
+             budget_amount, budget_currency, hotel_tier, exact_dates_only)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING search_query_id
         """,
-        (session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, exact_dates_only),
+        (
+            session_id, origin_iata, depart_date, return_date,
+            budget_amount, budget_currency, hotel_tier, exact_dates_only,
+        ),
     )
     return cur.fetchone()["search_query_id"]
 
@@ -200,7 +208,8 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
 def get_recent_searches(cur, session_id, limit=20):
     cur.execute(
         """
-        SELECT search_query_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, created_at
+        SELECT search_query_id, origin_iata, depart_date, return_date,
+               budget_amount, budget_currency, hotel_tier, created_at
         FROM search_queries
         WHERE session_id = %s
         ORDER BY created_at DESC
@@ -238,7 +247,9 @@ def get_data_quality_report(cur):
         """
         SELECT
             d.city_name, c.country_name,
-            (SELECT COUNT(*) FROM flight_price_observations AS f WHERE f.destination_id = d.destination_id) AS flight_obs_count,
+            (SELECT COUNT(*)
+             FROM flight_price_observations AS f
+             WHERE f.destination_id = d.destination_id) AS flight_obs_count,
             hp.sample_size AS hotel_sample_size
         FROM destinations AS d
         JOIN countries AS c ON c.country_code = d.country_code

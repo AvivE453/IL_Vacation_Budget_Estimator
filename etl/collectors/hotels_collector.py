@@ -84,7 +84,12 @@ def fetch_hotel_properties(city_query, check_in_date, check_out_date):
 
 def fetch_destinations(cur):
     cur.execute(
-        "SELECT destination_id, city_name, hotel_data_city_key FROM destinations WHERE is_active ORDER BY destination_id"
+        """
+        SELECT destination_id, city_name, hotel_data_city_key
+        FROM destinations
+        WHERE is_active
+        ORDER BY destination_id
+        """
     )
     return cur.fetchall()
 

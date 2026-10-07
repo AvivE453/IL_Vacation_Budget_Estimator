@@ -31,14 +31,19 @@ def estimate():
         except ValueError:
             budget_amount_usd = budget_amount if budget_currency == "USD" else None
 
-        estimates, has_missing_data = estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd, hotel_tier)
+        estimates, has_missing_data = estimate_all_destinations(
+            cur, origin_iata, depart_date, return_date, budget_amount_usd, hotel_tier
+        )
         # estimate_all_destinations returns either all-exact or all-approximate
         # rows, never a mix.
         exact_dates_only = bool(estimates) and (
             estimates[0]["flight_out_date"] == depart_date and estimates[0]["flight_return_date"] == return_date
         )
 
-        search_query_id = insert_search_query(cur, get_session_id(), origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, exact_dates_only)
+        search_query_id = insert_search_query(
+            cur, get_session_id(), origin_iata, depart_date, return_date,
+            budget_amount, budget_currency, hotel_tier, exact_dates_only,
+        )
         if budget_amount_usd is not None:
             insert_search_results(cur, search_query_id, estimates, budget_amount_usd)
 

@@ -1,0 +1,32 @@
+[project]
+name = "il-vacation-budget-estimator"
+version = "0.1.0"
+description = "Estimates total vacation cost (flight + hotel) from Israel by integrating two independent travel-price sources."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.3",
+    "psycopg2-binary>=2.9.13",
+    "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
+    "tenacity>=9.2.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Repo root on sys.path so tests can import app/ and etl/ without installing the project.
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+# Explicit rule set so new ruff releases can't silently change what CI enforces.
+select = ["E", "F", "I", "B", "UP"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
