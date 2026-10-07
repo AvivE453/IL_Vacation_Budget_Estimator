@@ -1,6 +1,7 @@
 # Runs the migration runner against a throwaway database created on the same
 # server as the dev DB (never the dev DB itself), one fresh database per test.
-# Skips if the server isn't reachable, same as conftest.py's `cur` fixture.
+# Server access (and skip-vs-fail when it's down) comes from conftest.py's
+# admin_conn fixture.
 
 import shutil
 
@@ -14,19 +15,9 @@ from etl.loaders.run_migrations import MIGRATIONS_DIR, PRE_TRACKING_MIGRATIONS, 
 SCRATCH_DB = "vacation_budget_migrations_test"
 
 
-def _admin_conn():
-    try:
-        conn = psycopg2.connect(DB_URL)
-    except psycopg2.OperationalError as e:
-        pytest.skip(f"database not reachable at {DB_URL}: {e}")
-    conn.autocommit = True  # CREATE/DROP DATABASE can't run inside a transaction
-    return conn
-
-
 @pytest.fixture()
-def empty_db():
-    admin = _admin_conn()
-    with admin.cursor() as cur:
+def empty_db(admin_conn):
+    with admin_conn.cursor() as cur:
         cur.execute(f"DROP DATABASE IF EXISTS {SCRATCH_DB}")
         cur.execute(f"CREATE DATABASE {SCRATCH_DB}")
     conn = psycopg2.connect(make_dsn(DB_URL, dbname=SCRATCH_DB))
@@ -34,9 +25,8 @@ def empty_db():
         yield conn
     finally:
         conn.close()
-        with admin.cursor() as cur:
+        with admin_conn.cursor() as cur:
             cur.execute(f"DROP DATABASE {SCRATCH_DB}")
-        admin.close()
 
 
 @pytest.fixture()

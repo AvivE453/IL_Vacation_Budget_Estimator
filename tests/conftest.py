@@ -8,6 +8,8 @@
 # The database is left in place after the run so it can be inspected; the
 # next run drops it first.
 
+import os
+
 import psycopg2
 import psycopg2.extras
 import pytest
@@ -21,23 +23,28 @@ from etl.loaders.run_migrations import migrate
 TEST_DB = "vacation_budget_test"
 
 
-def _recreate_test_db():
+# Connection to the server itself, for creating/dropping test databases.
+# Locally, no server just skips the DB tests. In CI (GitHub Actions sets
+# CI=true) a skip would turn into a green run that tested nothing, so it fails.
+@pytest.fixture(scope="session")
+def admin_conn():
     try:
-        admin = psycopg2.connect(DB_URL)
+        conn = psycopg2.connect(DB_URL)
     except psycopg2.OperationalError as e:
-        pytest.skip(f"database server not reachable at {DB_URL}: {e}")
-    admin.autocommit = True  # CREATE/DROP DATABASE can't run inside a transaction
-    try:
-        with admin.cursor() as cur:
-            cur.execute(f"DROP DATABASE IF EXISTS {TEST_DB}")
-            cur.execute(f"CREATE DATABASE {TEST_DB}")
-    finally:
-        admin.close()
+        message = f"database server not reachable at {DB_URL}: {e}"
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
+    conn.autocommit = True  # CREATE/DROP DATABASE can't run inside a transaction
+    yield conn
+    conn.close()
 
 
 @pytest.fixture(scope="session")
-def test_db_url():
-    _recreate_test_db()
+def test_db_url(admin_conn):
+    with admin_conn.cursor() as cur:
+        cur.execute(f"DROP DATABASE IF EXISTS {TEST_DB}")
+        cur.execute(f"CREATE DATABASE {TEST_DB}")
     url = make_dsn(DB_URL, dbname=TEST_DB)
     conn = psycopg2.connect(url)
     try:

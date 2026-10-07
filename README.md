@@ -1,5 +1,7 @@
 # Vacation Budget Estimator
 
+[![CI](https://github.com/AvivE453/IL_Vacation_Budget_Estimator/actions/workflows/ci.yml/badge.svg)](https://github.com/AvivE453/IL_Vacation_Budget_Estimator/actions/workflows/ci.yml)
+
 A database course project: estimates total vacation cost (flight + hotel) for
 a traveler departing Israel, by integrating two independent public data
 sources that key destinations in incompatible ways.
