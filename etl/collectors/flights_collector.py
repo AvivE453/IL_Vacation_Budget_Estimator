@@ -6,15 +6,16 @@
 # Each API result is a complete round trip: (one combined price) ,
 # correctly-ordered departure_at/return_at, and a real airline code + flight number.
 #
-# Run with: python -m etl.collectors.flights_collector
+# Run with: uv run python -m etl.collectors.flights_collector
 
 import datetime
 
+import psycopg2.extras
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from etl.common.config import TRAVELPAYOUTS_MARKER, TRAVELPAYOUTS_TOKEN
-from etl.common.db import get_cursor
+from etl.common.db import get_conn
 
 PRICES_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates"
 
@@ -121,7 +122,8 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
                 result.get("airline"),
             ),
         )
-        counters["inserted"] += 1
+        # rowcount, not 1: ON CONFLICT DO NOTHING inserts 0 rows for a duplicate.
+        counters["inserted"] += cur.rowcount
 
 
 def main():
@@ -130,12 +132,15 @@ def main():
 
     counters = {"inserted": 0, "skipped_no_offer": 0, "errors": 0}
 
-    with get_cursor() as cur:
+    with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         destinations = fetch_destinations(cur)
 
         for dest in destinations:
             for target_month in target_months():
                 collect_destination_month(cur, dest["destination_id"], dest["iata_code"], target_month, counters)
+            # Commit per destination: a crash or Ctrl+C partway through a run of
+            # ~225 API calls keeps everything collected up to that point.
+            conn.commit()
 
     print(f"inserted {counters['inserted']} round-trip flight observations "
           f"({counters['skipped_no_offer']} route/month combos had no offer, "

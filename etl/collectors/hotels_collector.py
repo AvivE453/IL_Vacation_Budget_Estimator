@@ -5,7 +5,7 @@
 # not an append-only time series - SerpApi's free tier caps at 250 searches/month,
 # too little for repeated same-day snapshots.
 #
-# Run with: python -m etl.collectors.hotels_collector
+# Run with: uv run python -m etl.collectors.hotels_collector
 
 import datetime
 
@@ -84,7 +84,12 @@ def fetch_hotel_properties(city_query, check_in_date, check_out_date):
 
 def fetch_destinations(cur):
     cur.execute(
-        "SELECT destination_id, city_name, hotel_data_city_key FROM destinations WHERE is_active ORDER BY destination_id"
+        """
+        SELECT destination_id, city_name, hotel_data_city_key
+        FROM destinations
+        WHERE is_active
+        ORDER BY destination_id
+        """
     )
     return cur.fetchall()
 

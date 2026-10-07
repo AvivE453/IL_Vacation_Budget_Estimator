@@ -4,7 +4,7 @@
 # Travelpayouts' own canonical IATA-code-to-name mapping and there's no reason
 # to hand-curate it.
 #
-# Run with: python -m etl.loaders.load_airlines
+# Run with: uv run python -m etl.loaders.load_airlines
 
 import requests
 

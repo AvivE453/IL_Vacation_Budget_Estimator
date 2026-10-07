@@ -4,7 +4,7 @@
 # history - it goes back to hotel_data_missing until re-collected. A price
 # nobody has refreshed in 3+ months is more likely to mislead than help.
 #
-# Run with: python -m etl.loaders.cleanup_old_hotels
+# Run with: uv run python -m etl.loaders.cleanup_old_hotels
 
 from etl.common.db import get_conn
 

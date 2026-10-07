@@ -1,3 +1,5 @@
+import psycopg2.extras
+
 # Travelpayouts' prices_for_dates is a cache of real-user searches, not an
 # exact-date lookup - it rarely has data for the exact dates requested. So
 # the nearest observed date pair within this many days is used instead of an
@@ -148,14 +150,22 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
 
 # Logs one search into search_queries; returns its id for insert_search_results
 # and the /history "saved ranking" link.
-def insert_search_query(cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier="average", exact_dates_only=None):
+def insert_search_query(
+    cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency,
+    hotel_tier="average", exact_dates_only=None,
+):
     cur.execute(
         """
-        INSERT INTO search_queries (session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, exact_dates_only)
+        INSERT INTO search_queries
+            (session_id, origin_iata, depart_date, return_date,
+             budget_amount, budget_currency, hotel_tier, exact_dates_only)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING search_query_id
         """,
-        (session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, exact_dates_only),
+        (
+            session_id, origin_iata, depart_date, return_date,
+            budget_amount, budget_currency, hotel_tier, exact_dates_only,
+        ),
     )
     return cur.fetchone()["search_query_id"]
 
@@ -169,29 +179,31 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
     )
     rank_by_destination = {e["destination_id"]: i + 1 for i, e in enumerate(ranked)}
 
-    for e in estimates:
-        within_budget = (
-            e["total_estimate_usd"] is not None and float(e["total_estimate_usd"]) <= budget_amount_usd
+    rows = [
+        (
+            search_query_id,
+            e["destination_id"],
+            e["flight_total_usd"],
+            e["hotel_total_usd"],
+            e["total_estimate_usd"],
+            e["total_estimate_usd"] is not None and float(e["total_estimate_usd"]) <= budget_amount_usd,
+            rank_by_destination.get(e["destination_id"]),
+            e["airline_code"],
         )
-        cur.execute(
-            """
-            INSERT INTO search_results
-                (search_query_id, destination_id, estimated_flight_usd, estimated_hotel_usd,
-                 estimated_total_usd, within_budget, rank_by_cost, airline_code)
-            VALUES (%s, %s, %s, %s, %s, %s, %s,
-                    (SELECT airline_code FROM airlines WHERE airline_code = %s))
-            """,
-            (
-                search_query_id,
-                e["destination_id"],
-                e["flight_total_usd"],
-                e["hotel_total_usd"],
-                e["total_estimate_usd"],
-                within_budget,
-                rank_by_destination.get(e["destination_id"]),
-                e["airline_code"],
-            ),
-        )
+        for e in estimates
+    ]
+    # One multi-row INSERT for every destination instead of one per row.
+    psycopg2.extras.execute_values(
+        cur,
+        """
+        INSERT INTO search_results
+            (search_query_id, destination_id, estimated_flight_usd, estimated_hotel_usd,
+             estimated_total_usd, within_budget, rank_by_cost, airline_code)
+        VALUES %s
+        """,
+        rows,
+        template="(%s, %s, %s, %s, %s, %s, %s, (SELECT airline_code FROM airlines WHERE airline_code = %s))",
+    )
 
 
 # Scoped to one anonymous browser session - there are no user accounts,
@@ -200,7 +212,8 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
 def get_recent_searches(cur, session_id, limit=20):
     cur.execute(
         """
-        SELECT search_query_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier, created_at
+        SELECT search_query_id, origin_iata, depart_date, return_date,
+               budget_amount, budget_currency, hotel_tier, created_at
         FROM search_queries
         WHERE session_id = %s
         ORDER BY created_at DESC
@@ -212,8 +225,10 @@ def get_recent_searches(cur, session_id, limit=20):
 
 
 # ranked alternatives within budget for a past search, shown
-# in the original search's budget_currency. 
-def get_search_results(cur, search_query_id):
+# in the original search's budget_currency. Scoped to session_id like
+# get_recent_searches: ids are sequential, so without it any browser could
+# read any other browser's search just by changing the number in the URL.
+def get_search_results(cur, search_query_id, session_id):
     cur.execute(
         """
         SELECT sr.destination_id, d.city_name, sr.estimated_total_usd, sr.within_budget,
@@ -224,9 +239,10 @@ def get_search_results(cur, search_query_id):
         JOIN search_queries AS sq ON sq.search_query_id = sr.search_query_id
         LEFT JOIN airlines AS al ON al.airline_code = sr.airline_code
         WHERE sr.search_query_id = %s
+          AND sq.session_id = %s
         ORDER BY cost_rank
         """,
-        (search_query_id,),
+        (search_query_id, session_id),
     )
     return cur.fetchall()
 
@@ -238,7 +254,9 @@ def get_data_quality_report(cur):
         """
         SELECT
             d.city_name, c.country_name,
-            (SELECT COUNT(*) FROM flight_price_observations AS f WHERE f.destination_id = d.destination_id) AS flight_obs_count,
+            (SELECT COUNT(*)
+             FROM flight_price_observations AS f
+             WHERE f.destination_id = d.destination_id) AS flight_obs_count,
             hp.sample_size AS hotel_sample_size
         FROM destinations AS d
         JOIN countries AS c ON c.country_code = d.country_code

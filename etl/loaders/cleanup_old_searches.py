@@ -3,7 +3,7 @@
 # cookie's own lifetime (app/main.py) - once a session that old has expired,
 # its rows are unreachable from any browser forever, so keeping them is dead weight.
 #
-# Run with: python -m etl.loaders.cleanup_old_searches
+# Run with: uv run python -m etl.loaders.cleanup_old_searches
 
 from etl.common.db import get_conn
 

@@ -1,6 +1,6 @@
 import pytest
 
-from etl.common.currency import from_usd, to_usd
+from etl.common.currency import from_usd, get_usd_per_unit, to_usd
 
 
 class FakeCursor:
@@ -15,33 +15,27 @@ class FakeCursor:
         return self._rate_row
 
 
-def test_to_usd_passthrough_for_usd():
+def test_usd_rate_is_one_without_a_query():
     cur = FakeCursor(rate_row=None)
-    assert to_usd(cur, 100, "USD") == 100.0
+    assert get_usd_per_unit(cur, "USD") == 1.0
+    assert cur.last_query is None
+
+
+def test_rate_read_from_exchange_rates():
+    cur = FakeCursor(rate_row={"usd_per_unit": 0.27})
+    assert get_usd_per_unit(cur, "ILS") == 0.27
+    assert cur.last_query[1] == ("ILS",)
+
+
+def test_rate_lookup_raises_when_rate_missing():
+    cur = FakeCursor(rate_row=None)
+    with pytest.raises(ValueError):
+        get_usd_per_unit(cur, "GEL")
 
 
 def test_to_usd_converts_using_rate():
-    cur = FakeCursor(rate_row={"usd_per_unit": 1.1})
-    assert to_usd(cur, 100, "EUR") == 110.0
-
-
-def test_to_usd_raises_when_rate_missing():
-    cur = FakeCursor(rate_row=None)
-    with pytest.raises(ValueError):
-        to_usd(cur, 100, "GEL")
-
-
-def test_from_usd_passthrough_for_usd():
-    cur = FakeCursor(rate_row=None)
-    assert from_usd(cur, 100, "USD") == 100.0
+    assert to_usd(100, 1.1) == 110.0
 
 
 def test_from_usd_converts_using_rate():
-    cur = FakeCursor(rate_row={"usd_per_unit": 0.27})
-    assert from_usd(cur, 100, "ILS") == pytest.approx(370.37, abs=0.01)
-
-
-def test_from_usd_raises_when_rate_missing():
-    cur = FakeCursor(rate_row=None)
-    with pytest.raises(ValueError):
-        from_usd(cur, 100, "GEL")
+    assert from_usd(100, 0.27) == pytest.approx(370.37, abs=0.01)
