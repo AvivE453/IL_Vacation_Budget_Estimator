@@ -64,6 +64,15 @@ def run_search(cur, session_id, origin_iata, depart_date, return_date, budget_am
     )
 
 
+# The currency a saved search is shown in, and its rate: the one it was made
+# in, or USD when no rate is on file for it.
+def display_currency_and_rate(cur, currency):
+    try:
+        return currency, get_usd_per_unit(cur, currency)
+    except ValueError:
+        return "USD", 1.0
+
+
 def _usd_per_unit_or_none(cur, currency):
     try:
         return get_usd_per_unit(cur, currency)

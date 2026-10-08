@@ -12,6 +12,7 @@ from api.routes.data_quality import router as data_quality_router
 from api.routes.estimates import router as estimates_router
 from api.routes.health import router as health_router
 from api.routes.origins import router as origins_router
+from api.routes.searches import router as searches_router
 from app.db import PoolExhausted
 
 API_PREFIX = "/api/v1"
@@ -21,6 +22,7 @@ app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(origins_router, prefix=API_PREFIX)
 app.include_router(data_quality_router, prefix=API_PREFIX)
 app.include_router(estimates_router, prefix=API_PREFIX)
+app.include_router(searches_router, prefix=API_PREFIX)
 
 
 @app.exception_handler(PoolExhausted)

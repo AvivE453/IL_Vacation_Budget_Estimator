@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from api.deps import db_cursor
 from api.main import app
 from app.db import PoolExhausted
-from tests.factories import add_exchange_rate, add_flight, add_hotel
+from tests.factories import add_exchange_rate, add_flight, add_hotel, add_saved_search
 
 DEPART = datetime.date(2030, 6, 1)
 RETURN = datetime.date(2030, 6, 8)
@@ -189,3 +189,91 @@ def test_missing_field_is_422(client):
 
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "depart_date"]
+
+
+# --- GET /api/v1/searches ----------------------------------------------------
+
+
+def as_browser(client, session_id):
+    client.cookies.set("session_id", session_id)
+
+
+def test_search_list_shows_this_browsers_searches_newest_first(client, cur):
+    older = add_saved_search(cur, "browser-a", budget_currency="ILS")
+    newer = add_saved_search(cur, "browser-a")
+    add_saved_search(cur, "browser-b")
+    # One transaction means one now(), so give the older search an earlier time.
+    cur.execute(
+        "UPDATE search_queries SET created_at = created_at - interval '1 day' WHERE search_query_id = %s", (older,)
+    )
+    as_browser(client, "browser-a")
+
+    searches = client.get("/api/v1/searches").json()
+
+    assert [s["search_id"] for s in searches] == [newer, older]
+    assert {k: v for k, v in searches[1].items() if k != "created_at"} == {
+        "search_id": older,
+        "origin_iata": "TLV",
+        "depart_date": "2030-06-01",
+        "return_date": "2030-06-08",
+        "budget_amount": 5000.0,
+        "budget_currency": "ILS",
+        "hotel_tier": "average",
+    }
+
+
+def test_new_browser_has_no_searches_and_gets_a_session(client):
+    response = client.get("/api/v1/searches")
+
+    assert response.json() == []
+    assert response.cookies["session_id"]
+
+
+def test_saved_search_is_shown_in_its_budget_currency(client, cur):
+    add_exchange_rate(cur, "ILS", 0.25)
+    search_id = add_saved_search(cur, "browser-a", ["BCN"], budget_currency="ILS")
+    as_browser(client, "browser-a")
+
+    body = client.get(f"/api/v1/searches/{search_id}").json()
+
+    assert body["search_id"] == search_id
+    assert body["currency"] == "ILS"
+    assert body["exact_dates_only"] is None  # not recorded by the factory
+    assert body["results"] == [
+        {
+            "cost_rank": 1,
+            "destination_id": body["results"][0]["destination_id"],
+            "city_name": "Barcelona",
+            "airline_code": None,
+            "airline_name": None,
+            "estimated_total_amount": 4000.0,  # $1000 at 0.25 USD per ILS
+            "within_budget": True,
+        }
+    ]
+
+
+def test_search_with_no_saved_results_is_found(client, cur):
+    search_id = add_saved_search(cur, "browser-a", [])
+    as_browser(client, "browser-a")
+
+    response = client.get(f"/api/v1/searches/{search_id}")
+
+    assert response.status_code == 200
+    assert response.json()["results"] == []
+
+
+def test_another_browsers_search_is_not_found(client, cur):
+    search_id = add_saved_search(cur, "browser-a")
+    as_browser(client, "browser-b")
+
+    assert client.get(f"/api/v1/searches/{search_id}").status_code == 404
+
+
+def test_saved_search_without_a_rate_is_shown_in_usd(client, cur):
+    search_id = add_saved_search(cur, "browser-a", ["BCN"], budget_currency="GBP")
+    as_browser(client, "browser-a")
+
+    body = client.get(f"/api/v1/searches/{search_id}").json()
+
+    assert body["currency"] == "USD"
+    assert body["results"][0]["estimated_total_amount"] == 1000.0

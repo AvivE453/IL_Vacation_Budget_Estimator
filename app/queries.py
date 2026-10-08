@@ -261,6 +261,23 @@ def get_recent_searches(cur, session_id, limit=20):
     return cur.fetchall()
 
 
+# One past search's own parameters, or None if it isn't this session's.
+# Separate from get_search_results so a search that saved no results (every
+# destination over budget) still exists rather than looking like a 404.
+def get_search(cur, search_query_id, session_id):
+    cur.execute(
+        """
+        SELECT search_query_id, origin_iata, depart_date, return_date,
+               budget_amount, budget_currency, hotel_tier, exact_dates_only, created_at
+        FROM search_queries
+        WHERE search_query_id = %s
+          AND session_id = %s
+        """,
+        (search_query_id, session_id),
+    )
+    return cur.fetchone()
+
+
 # ranked alternatives within budget for a past search, shown
 # in the original search's budget_currency. Scoped to session_id like
 # get_recent_searches: ids are sequential, so without it any browser could
