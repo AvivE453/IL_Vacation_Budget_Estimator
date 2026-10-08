@@ -13,6 +13,8 @@ from etl.common.config import DB_URL
 from etl.loaders.run_migrations import MIGRATIONS_DIR, PRE_TRACKING_MIGRATIONS, migrate
 
 SCRATCH_DB = "vacation_budget_migrations_test"
+ALL_MIGRATIONS = sorted(path.name for path in MIGRATIONS_DIR.glob("*.sql"))
+TRACKED_MIGRATIONS = [name for name in ALL_MIGRATIONS if name not in PRE_TRACKING_MIGRATIONS]
 
 
 @pytest.fixture()
@@ -52,8 +54,8 @@ def test_empty_database_applies_every_migration(empty_db):
     recorded, applied = migrate(empty_db)
 
     assert recorded == []
-    assert applied == PRE_TRACKING_MIGRATIONS
-    assert _tracked(empty_db) == PRE_TRACKING_MIGRATIONS
+    assert applied == ALL_MIGRATIONS
+    assert _tracked(empty_db) == ALL_MIGRATIONS
     assert _table_exists(empty_db, "search_results")
 
 
@@ -72,7 +74,7 @@ def test_existing_untracked_schema_is_recorded_not_rerun(empty_db):
     recorded, applied = migrate(empty_db)
 
     assert recorded == PRE_TRACKING_MIGRATIONS
-    assert applied == []
+    assert applied == TRACKED_MIGRATIONS
     with empty_db, empty_db.cursor() as cur:
         cur.execute("SELECT country_name FROM countries WHERE country_code = 'IL'")
         assert cur.fetchone() == ("Israel",)

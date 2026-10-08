@@ -63,6 +63,22 @@ def test_same_dates_use_most_recent_observation(cur):
     assert estimates[0]["flight_total_usd"] == 350
 
 
+def test_same_dates_prefer_the_most_recently_seen_price(cur):
+    # Collected later but seen earlier loses to collected earlier but seen later:
+    # what counts is when the price was actually quoted, not when we fetched it.
+    fetched_later = datetime.datetime(2030, 1, 2, tzinfo=datetime.UTC)
+    fetched_earlier = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400,
+               observed_at=fetched_later, price_seen_on=datetime.date(2029, 12, 20))
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=350,
+               observed_at=fetched_earlier, price_seen_on=datetime.date(2029, 12, 30))
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    estimates, _ = estimate(cur)
+
+    assert estimates[0]["flight_total_usd"] == 350
+
+
 def test_any_exact_match_drops_every_approximate_one(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
     add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=100)

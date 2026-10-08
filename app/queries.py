@@ -74,8 +74,12 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
               -- scan; return_date and the ORDER BY below aren't indexed.
               AND depart_date BETWEEN %(depart_date)s - %(max_drift)s AND %(depart_date)s + %(max_drift)s
               AND ABS(return_date - %(return_date)s) <= %(max_drift)s
+            -- Ties on date drift go to the price seen most recently by a real
+            -- search; rows from before price_seen_on existed fall back to
+            -- when we collected them.
             ORDER BY destination_id,
                      ABS(depart_date - %(depart_date)s) + ABS(return_date - %(return_date)s),
+                     price_seen_on DESC NULLS LAST,
                      observed_at DESC
         ),
         hotel_pick AS (

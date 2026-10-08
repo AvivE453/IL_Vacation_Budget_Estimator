@@ -9,6 +9,7 @@
 # Run with: uv run python -m etl.collectors.flights_collector
 
 import datetime
+from urllib.parse import parse_qs, urlparse
 
 import psycopg2.extras
 import requests
@@ -45,6 +46,21 @@ def wait_before_retry(retry_state):
     if isinstance(error, requests.HTTPError) and error.response.status_code == 429:
         return int(error.response.headers.get("X-Rate-Limit-Reset", DEFAULT_RATE_LIMIT_RESET_SECONDS))
     return backoff_on_other_errors(retry_state)
+
+
+# The day an Aviasales user actually saw this price. It isn't a documented
+# field - it's the search_date=DDMMYYYY parameter of the result's search
+# link - so anything missing or malformed gives None rather than failing the run.
+def price_seen_on(link):
+    if not link:
+        return None
+    values = parse_qs(urlparse(link).query).get("search_date")
+    if not values:
+        return None
+    try:
+        return datetime.datetime.strptime(values[0], "%d%m%Y").date()
+    except ValueError:
+        return None
 
 
 def target_months():
@@ -120,9 +136,12 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
             INSERT INTO flight_price_observations
                 (destination_id, origin_iata, destination_iata, depart_date, return_date,
                  depart_time, return_time,
-                 price_amount, currency_code, price_amount_usd, number_of_stops, airline_code)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT uq_flight_obs DO NOTHING
+                 price_amount, currency_code, price_amount_usd, number_of_stops, airline_code,
+                 price_seen_on)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            -- No target: skips a duplicate within this run (uq_flight_obs) and a
+            -- price an earlier run already stored (uq_flight_obs_price_seen).
+            ON CONFLICT DO NOTHING
             """,
             (
                 destination_id,
@@ -137,6 +156,7 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
                 result["price"],
                 result.get("transfers", 0),
                 result.get("airline"),
+                price_seen_on(result.get("link")),
             ),
         )
         # rowcount, not 1: ON CONFLICT DO NOTHING inserts 0 rows for a duplicate.

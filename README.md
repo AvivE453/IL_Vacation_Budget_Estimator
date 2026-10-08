@@ -39,8 +39,10 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
    ```
    The schema is designed around daily snapshots collected over several weeks; this
    project's actual collection window was compressed to a few days due to the course
-   timeline. Each run adds a fresh `observed_at` snapshot -- it never overwrites, so
-   running it repeatedly builds up real time-series data.
+   timeline. Rows are never overwritten. Each cached price carries the day a real search
+   saw it (`price_seen_on`), and a run only stores prices it doesn't already have -- the
+   cache keeps about a week of quotes, so re-running soon after adds almost nothing
+   instead of duplicating the same quotes under a new `observed_at`.
 8. **Run the app**: `uv run flask --app app.main run --debug`, then visit http://127.0.0.1:5000
 
 ## Tests and lint
