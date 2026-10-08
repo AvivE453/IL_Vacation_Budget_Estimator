@@ -31,7 +31,7 @@
   <thead><tr><th>Day</th><th>Observations collected</th></tr></thead>
   <tbody>
     {% for row in volume %}
-    <tr><td>{{ row.day.date() }}</td><td>{{ row.observations_collected }}</td></tr>
+    <tr><td>{{ row.day }}</td><td>{{ row.observations_collected }}</td></tr>
     {% endfor %}
   </tbody>
 </table>

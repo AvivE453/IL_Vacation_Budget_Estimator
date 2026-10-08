@@ -63,7 +63,7 @@ def test_collection_volume_groups_by_observation_day(cur):
 
     rows = get_collection_volume(cur)
 
-    assert [(r["day"].date(), r["observations_collected"]) for r in rows] == [
+    assert [(r["day"], r["observations_collected"]) for r in rows] == [
         (day1.date(), 2),
         (day2.date(), 1),
     ]

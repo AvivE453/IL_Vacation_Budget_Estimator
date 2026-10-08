@@ -279,7 +279,7 @@ def get_data_quality_report(cur):
 def get_collection_volume(cur):
     cur.execute(
         """
-        SELECT date_trunc('day', observed_at) AS day, COUNT(*) AS observations_collected
+        SELECT observed_at::date AS day, COUNT(*) AS observations_collected
         FROM flight_price_observations
         GROUP BY 1
         ORDER BY 1
