@@ -12,11 +12,22 @@ from fastapi.testclient import TestClient
 
 from api.deps import db_cursor
 from api.main import app
+from app import trip as trip_module
 from app.db import PoolExhausted
-from tests.factories import add_exchange_rate, add_flight, add_hotel, add_saved_search
+from app.queries import count_active_destinations
+from tests.factories import add_airline, add_exchange_rate, add_flight, add_hotel, add_saved_search
 
 DEPART = datetime.date(2030, 6, 1)
 RETURN = datetime.date(2030, 6, 8)
+
+
+# No test here reaches the real Travelpayouts: the live call fails unless a
+# test hands it an answer through `live`.
+@pytest.fixture(autouse=True)
+def live(monkeypatch):
+    answer = {"options": None}
+    monkeypatch.setattr(trip_module, "fetch_live_flight_options", lambda *args: answer["options"])
+    return answer
 
 
 @pytest.fixture()
@@ -277,3 +288,143 @@ def test_saved_search_without_a_rate_is_shown_in_usd(client, cur):
 
     assert body["currency"] == "USD"
     assert body["results"][0]["estimated_total_amount"] == 1000.0
+
+
+# --- GET /api/v1/destinations ------------------------------------------------
+
+
+def test_destinations_lists_every_active_destination(client, cur):
+    destinations = client.get("/api/v1/destinations").json()
+
+    assert len(destinations) == count_active_destinations(cur)
+    barcelona = next(d for d in destinations if d["iata_code"] == "BCN")
+    assert (barcelona["city_name"], barcelona["country_name"]) == ("Barcelona", "Spain")
+
+
+# --- GET /api/v1/destinations/{id}/trip --------------------------------------
+
+
+def barcelona_id(cur):
+    cur.execute("SELECT destination_id FROM destinations WHERE iata_code = 'BCN'")
+    return cur.fetchone()["destination_id"]
+
+
+def trip(client, cur, **params):
+    query = {"depart_date": DEPART.isoformat(), "return_date": RETURN.isoformat(), "currency": "USD", **params}
+    return client.get(f"/api/v1/destinations/{barcelona_id(cur)}/trip", params=query)
+
+
+def live_option(price, **overrides):
+    return {
+        "depart_date": DEPART,
+        "return_date": RETURN,
+        "depart_time": datetime.time(18, 55),
+        "return_time": datetime.time(7, 30),
+        "airline_code": "IZ",
+        "flight_number": "6404",
+        "outbound_stops": 0,
+        "return_stops": 1,
+        "outbound_minutes": 300,
+        "return_minutes": 420,
+        "price_usd": price,
+        "price_seen_on": datetime.date(2030, 5, 20),
+        "booking_url": "https://www.aviasales.com/search/x",
+        **overrides,
+    }
+
+
+def test_trip_shows_live_options_with_hotel_prices(client, cur, live):
+    add_exchange_rate(cur, "ILS", 0.25)
+    add_airline(cur, "IZ", "Arkia")
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=999)  # collected data is ignored when live answers
+    live["options"] = [live_option(176), live_option(231, airline_code="XX", flight_number=None)]
+
+    body = trip(client, cur, currency="ILS").json()
+
+    assert body["source"] == "live"
+    assert body["exact_dates"] is True
+    assert (body["flight_out_date"], body["flight_return_date"]) == ("2030-06-01", "2030-06-08")
+    assert body["currency"] == "ILS"
+    assert body["flights"][0] == {
+        "airline_code": "IZ",
+        "airline_name": "Arkia",
+        "flight_number": "6404",
+        "depart_time": "18:55:00",
+        "return_time": "07:30:00",
+        "outbound_stops": 0,
+        "return_stops": 1,
+        "outbound_minutes": 300,
+        "return_minutes": 420,
+        "price_amount": 704.0,  # $176 at 0.25 USD per ILS
+        "price_seen_on": "2030-05-20",
+        "booking_url": "https://www.aviasales.com/search/x",
+    }
+    assert body["flights"][1]["airline_name"] is None  # code not in the airlines table
+    assert body["hotel"] == {
+        "nights": 7,
+        "price_age_days": 0,
+        "budget": {"per_night_amount": 240.0, "total_amount": 1680.0},
+        "average": {"per_night_amount": 400.0, "total_amount": 2800.0},
+        "luxury": None,  # no luxury price on file
+    }
+
+
+@pytest.mark.parametrize("live_answer", [None, []], ids=["live-failed", "live-empty"])
+def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_answer):
+    live["options"] = live_answer
+    add_hotel(cur, "barcelona", avg_usd=100)
+    nearest_depart = DEPART + datetime.timedelta(days=1)  # a 6-night trip
+    # The same flight seen twice: only the price seen last is an option.
+    add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=300, airline_code="IZ",
+               price_seen_on=datetime.date(2030, 5, 1))
+    add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=280, airline_code="IZ",
+               price_seen_on=datetime.date(2030, 5, 3))
+    add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=250, airline_code="W4", number_of_stops=1)
+    # Farther from the request, so not the pair shown.
+    add_flight(cur, "BCN", DEPART + datetime.timedelta(days=3), RETURN, price_usd=100)
+
+    body = trip(client, cur).json()
+
+    assert body["source"] == "collected"
+    assert body["exact_dates"] is False
+    assert body["flight_out_date"] == nearest_depart.isoformat()
+    assert [(f["airline_code"], f["price_amount"]) for f in body["flights"]] == [("W4", 250.0), ("IZ", 280.0)]
+    w4 = body["flights"][0]
+    assert w4["outbound_stops"] == 1
+    assert [w4[k] for k in ("return_stops", "outbound_minutes", "return_minutes", "booking_url")] == [None] * 4
+    assert body["hotel"]["nights"] == 6
+
+
+def test_trip_with_no_flights_anywhere(client, cur):
+    body = trip(client, cur).json()
+
+    assert body["source"] is None
+    assert body["flights"] == []
+    assert body["exact_dates"] is False
+    assert body["hotel"]["nights"] == 7  # the requested trip, with no flight to follow
+    assert body["hotel"]["average"] is None  # no hotel price on file either
+
+
+def test_unknown_or_inactive_destination_is_404(client, cur):
+    query = {"depart_date": DEPART.isoformat(), "return_date": RETURN.isoformat()}
+    assert client.get("/api/v1/destinations/999999/trip", params=query).status_code == 404
+
+    cur.execute("UPDATE destinations SET is_active = false WHERE iata_code = 'BCN'")
+    assert trip(client, cur).status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"return_date": DEPART.isoformat()}, None),
+        ({"currency": "GBP"}, "currency"),
+        ({"origin_iata": "XYZ"}, "origin_iata"),
+    ],
+)
+def test_invalid_trip_query_is_422(client, cur, params, field):
+    response = trip(client, cur, **params)
+
+    assert response.status_code == 422
+    if field:
+        assert [e["loc"] for e in response.json()["detail"]] == [["query", field]]

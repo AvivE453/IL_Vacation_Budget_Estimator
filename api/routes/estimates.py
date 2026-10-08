@@ -79,7 +79,7 @@ class EstimateResponse(BaseModel):
 # the search (with the requested tier's results) to this browser's history.
 @router.post("/estimates")
 def create_estimate(body: EstimateRequest, cur: Cursor, session_id: SessionId) -> EstimateResponse:
-    _require_known_origin(cur, body.origin_iata)
+    require_known_origin(cur, body.origin_iata, location="body")
     search = run_search(
         cur, session_id, body.origin_iata, body.depart_date, body.return_date,
         body.budget_amount, body.budget_currency, body.hotel_tier,
@@ -104,7 +104,8 @@ def create_estimate(body: EstimateRequest, cur: Cursor, session_id: SessionId) -
 # Origins live in the database, so this can't be a Literal on the model. Raised
 # as a validation error so it reaches the client in the same 422 shape as the
 # model's own checks - and before saving the search would hit the foreign key.
-def _require_known_origin(cur, origin_iata):
+# location is where the field came from: "body" or "query".
+def require_known_origin(cur, origin_iata, location):
     if origin_iata not in {o["iata_code"] for o in list_origin_airports(cur)}:
-        error = {"type": "value_error", "loc": ("body", "origin_iata"), "msg": "Unknown origin airport"}
+        error = {"type": "value_error", "loc": (location, "origin_iata"), "msg": "Unknown origin airport"}
         raise RequestValidationError([{**error, "input": origin_iata}])

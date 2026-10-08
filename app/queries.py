@@ -301,6 +301,96 @@ def get_search_results(cur, search_query_id, session_id):
     return cur.fetchall()
 
 
+def list_active_destinations(cur):
+    cur.execute(
+        """
+        SELECT d.destination_id, d.city_name, c.country_name, d.iata_code
+        FROM destinations AS d
+        JOIN countries AS c ON c.country_code = d.country_code
+        WHERE d.is_active
+        ORDER BY d.city_name
+        """
+    )
+    return cur.fetchall()
+
+
+# One active destination with its hotel prices per tier (NULL when not on
+# file), or None if there's no such active destination.
+def get_destination(cur, destination_id):
+    cur.execute(
+        """
+        SELECT d.destination_id, d.city_name, c.country_name, d.iata_code,
+               hp.avg_price_budget_tier_usd AS hotel_budget_per_night_usd,
+               hp.avg_price_per_night_usd AS hotel_average_per_night_usd,
+               hp.avg_price_luxury_tier_usd AS hotel_luxury_per_night_usd,
+               CURRENT_DATE - hp.loaded_at::date AS hotel_price_age_days
+        FROM destinations AS d
+        JOIN countries AS c ON c.country_code = d.country_code
+        LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
+        WHERE d.destination_id = %s
+          AND d.is_active
+        """,
+        (destination_id,),
+    )
+    return cur.fetchone()
+
+
+# The collected flight options for one destination on the date pair nearest
+# the request - the same pair, by the same rules, that estimate_all_destinations
+# would pick. A flight observed several times appears once, at the price
+# seen most recently. Cheapest first; empty beyond MAX_DATE_DRIFT_DAYS.
+def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, return_date):
+    cur.execute(
+        """
+        WITH candidates AS (
+            SELECT *
+            FROM flight_price_observations
+            WHERE origin_iata = %(origin_iata)s
+              AND destination_id = %(destination_id)s
+              AND depart_date BETWEEN %(depart_date)s - %(max_drift)s AND %(depart_date)s + %(max_drift)s
+              AND ABS(return_date - %(return_date)s) <= %(max_drift)s
+        ),
+        nearest_pair AS (
+            SELECT depart_date, return_date
+            FROM candidates
+            ORDER BY ABS(depart_date - %(depart_date)s) + ABS(return_date - %(return_date)s),
+                     price_seen_on DESC NULLS LAST,
+                     observed_at DESC
+            LIMIT 1
+        ),
+        latest_per_flight AS (
+            SELECT DISTINCT ON (c.airline_code, c.number_of_stops, c.depart_time, c.return_time)
+                c.depart_date, c.return_date, c.airline_code, c.number_of_stops,
+                c.depart_time, c.return_time, c.price_amount_usd, c.price_seen_on
+            FROM candidates AS c
+            JOIN nearest_pair AS n ON n.depart_date = c.depart_date AND n.return_date = c.return_date
+            ORDER BY c.airline_code, c.number_of_stops, c.depart_time, c.return_time,
+                     c.price_seen_on DESC NULLS LAST, c.observed_at DESC
+        )
+        SELECT lpf.*, al.airline_name
+        FROM latest_per_flight AS lpf
+        LEFT JOIN airlines AS al ON al.airline_code = lpf.airline_code
+        ORDER BY lpf.price_amount_usd
+        """,
+        {
+            "origin_iata": origin_iata,
+            "destination_id": destination_id,
+            "depart_date": depart_date,
+            "return_date": return_date,
+            "max_drift": MAX_DATE_DRIFT_DAYS,
+        },
+    )
+    return cur.fetchall()
+
+
+def get_airline_names(cur, airline_codes):
+    cur.execute(
+        "SELECT airline_code, airline_name FROM airlines WHERE airline_code = ANY(%s)",
+        (list(airline_codes),),
+    )
+    return {r["airline_code"]: r["airline_name"] for r in cur.fetchall()}
+
+
 # per-destination observation coverage + missing-data flags
 # across both integrated sources.
 def get_data_quality_report(cur):
