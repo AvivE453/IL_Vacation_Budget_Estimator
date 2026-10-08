@@ -6,7 +6,7 @@ import datetime
 
 import pytest
 
-from app.queries import MAX_DATE_DRIFT_DAYS, estimate_all_destinations
+from app.queries import HOTEL_TIERS, MAX_DATE_DRIFT_DAYS, estimate_all_destinations, estimate_all_tiers
 from tests.factories import add_flight, add_hotel
 
 DEPART = datetime.date(2030, 6, 1)
@@ -200,3 +200,31 @@ def test_unknown_airline_code_keeps_the_row(cur):
 
     assert row["airline_code"] == "H3"
     assert row["airline_name"] is None
+
+
+# --- all tiers at once (estimate_all_tiers) ----------------------------------
+
+
+def test_each_tier_matches_estimating_that_tier_alone(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=200)
+    add_flight(cur, "FCO", DEPART, RETURN, price_usd=900)
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "madrid", avg_usd=80, budget_usd=None, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "rome", avg_usd=120, budget_usd=70, luxury_usd=300)
+
+    all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, 2500)
+
+    for tier in HOTEL_TIERS:
+        assert all_tiers[tier] == estimate(cur, budget_usd=2500, hotel_tier=tier)
+
+
+def test_tiers_get_their_own_budget_and_missing_data_verdicts(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+
+    all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, budget_amount_usd=800)
+
+    assert cities(all_tiers["budget"][0]) == ["Barcelona"]  # 300 + 7 * 60 = 720
+    assert all_tiers["average"] == ([], False)  # 300 + 7 * 100 = 1000, over budget
+    assert all_tiers["luxury"] == ([], True)  # no luxury price on file

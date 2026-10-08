@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from api.deps import db_cursor
 from api.main import app
 from app.db import PoolExhausted
-from tests.factories import add_flight, add_hotel
+from tests.factories import add_exchange_rate, add_flight, add_hotel
 
 DEPART = datetime.date(2030, 6, 1)
 RETURN = datetime.date(2030, 6, 8)
@@ -80,3 +80,112 @@ def test_data_quality_collection_volume_is_per_day(client, cur):
     response = client.get("/api/v1/data-quality")
 
     assert response.json()["collection_volume"] == [{"day": "2030-01-01", "observations_collected": 2}]
+
+
+# --- POST /api/v1/estimates --------------------------------------------------
+
+
+def search_body(**overrides):
+    return {
+        "origin_iata": "TLV",
+        "depart_date": DEPART.isoformat(),
+        "return_date": RETURN.isoformat(),
+        "budget_amount": 5000,
+        "budget_currency": "ILS",
+        "hotel_tier": "average",
+        **overrides,
+    }
+
+
+def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
+    add_exchange_rate(cur, "ILS", 0.25)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="IZ")
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
+
+    response = client.post("/api/v1/estimates", json=search_body())
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["currency"] == "ILS"
+    assert body["budget_amount"] == 5000
+    assert set(body["tiers"]) == {"budget", "average", "luxury"}
+    budget_tier = body["tiers"]["budget"]
+    assert budget_tier["exact_dates_only"] is True
+    assert budget_tier["has_missing_data"] is False
+    assert budget_tier["destinations"] == [
+        {
+            "destination_id": budget_tier["destinations"][0]["destination_id"],
+            "city_name": "Barcelona",
+            "airline_code": "IZ",
+            "airline_name": None,
+            "flight_out_date": "2030-06-01",
+            "flight_return_date": "2030-06-08",
+            "matched_nights": 7,
+            "flight_total_amount": 1200.0,  # $300 at 0.25 USD per ILS
+            "hotel_total_amount": 1680.0,  # 7 * $60
+            "total_estimate_amount": 2880.0,
+        }
+    ]
+    # Luxury: 300 + 7 * 250 = $2050 = 8200 ILS, over the 5000 ILS budget.
+    assert body["tiers"]["luxury"] == {"exact_dates_only": False, "has_missing_data": False, "destinations": []}
+
+
+def test_estimate_saves_only_the_requested_tier_to_this_browsers_history(client, cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_flight(cur, "MAD", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "madrid", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+
+    response = client.post("/api/v1/estimates", json=search_body(budget_currency="USD", hotel_tier="luxury"))
+
+    cur.execute(
+        "SELECT session_id, hotel_tier, (SELECT COUNT(*) FROM search_results WHERE search_query_id = %(id)s) AS saved"
+        " FROM search_queries WHERE search_query_id = %(id)s",
+        {"id": response.json()["search_id"]},
+    )
+    saved = cur.fetchone()
+    assert saved["session_id"] == response.cookies["session_id"]
+    assert saved["hotel_tier"] == "luxury"
+    assert saved["saved"] == 1  # Madrid has no luxury price, so only Barcelona
+
+
+def test_searches_from_one_browser_share_a_session(client, cur):
+    # TestClient sends back the cookies it received, like a browser.
+    responses = [client.post("/api/v1/estimates", json=search_body(budget_currency="USD")) for _ in range(2)]
+    ids = [r.json()["search_id"] for r in responses]
+
+    cur.execute("SELECT DISTINCT session_id FROM search_queries WHERE search_query_id = ANY(%s)", (ids,))
+
+    assert [r["session_id"] for r in cur.fetchall()] == [client.cookies["session_id"]]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "field"),
+    [
+        ({"return_date": DEPART.isoformat()}, None),  # model-level check: same-day return
+        ({"depart_date": "2030-13-01"}, "depart_date"),
+        ({"budget_amount": 0}, "budget_amount"),
+        ({"budget_amount": 100_000_000}, "budget_amount"),
+        ({"budget_amount": "abc"}, "budget_amount"),
+        ({"budget_currency": "GBP"}, "budget_currency"),
+        ({"hotel_tier": "premium"}, "hotel_tier"),
+        ({"origin_iata": "XYZ"}, "origin_iata"),
+        ({"origin_iata": "BCN"}, "origin_iata"),  # a real airport, but not one we depart from
+    ],
+)
+def test_invalid_search_is_422_naming_the_field(client, overrides, field):
+    response = client.post("/api/v1/estimates", json=search_body(**overrides))
+
+    assert response.status_code == 422
+    if field:
+        assert [e["loc"] for e in response.json()["detail"]] == [["body", field]]
+
+
+def test_missing_field_is_422(client):
+    body = search_body()
+    del body["depart_date"]
+
+    response = client.post("/api/v1/estimates", json=body)
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "depart_date"]

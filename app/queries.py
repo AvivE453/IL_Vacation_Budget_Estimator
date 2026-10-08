@@ -48,6 +48,28 @@ HOTEL_TIERS = ("budget", "average", "luxury")
 # "we had candidates, your budget or the exact-date rule excluded them all"
 # (this flag is False). It is NOT "some destination is missing data" - with 45
 # destinations that would be True almost always, and useless to act on.
+def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd=None, hotel_tier="average"):
+    if hotel_tier not in HOTEL_TIERS:
+        raise ValueError(f"hotel_tier must be one of {HOTEL_TIERS}, got {hotel_tier!r}")
+    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, [hotel_tier])
+    return _apply_estimate_rules(rows, depart_date, return_date, budget_amount_usd)
+
+
+# Same rules as estimate_all_destinations, for every hotel tier from one
+# query: {tier: (estimates, has_missing_data)}. Each tier gets its own
+# missing-data, budget and exact-date verdicts, since a tier's price decides
+# all three.
+def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount_usd=None):
+    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, list(HOTEL_TIERS))
+    return {
+        tier: _apply_estimate_rules(
+            [r for r in rows if r["hotel_tier"] == tier], depart_date, return_date, budget_amount_usd
+        )
+        for tier in HOTEL_TIERS
+    }
+
+
+# One row per active destination per requested hotel tier, cheapest first.
 #
 # Uses WITH (CTEs) purely for readability over nested subqueries - on
 # Postgres 16 a single-use CTE inlines the same way no performance difference.
@@ -55,11 +77,9 @@ HOTEL_TIERS = ("budget", "average", "luxury")
 # LEFT JOIN, not JOIN, in the scored CTE below: a destination with no
 # matching flight/hotel must still appear (as NULL) so flight_data_missing/
 # hotel_data_missing can actually be computed for it. Filtering on those
-# flags (and on budget) happens in Python below, not in this SQL, precisely
-# so the missing-data rows survive long enough to be counted.
-def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd=None, hotel_tier="average"):
-    if hotel_tier not in HOTEL_TIERS:
-        raise ValueError(f"hotel_tier must be one of {HOTEL_TIERS}, got {hotel_tier!r}")
+# flags (and on budget) happens in Python (_apply_estimate_rules), not in
+# this SQL, precisely so the missing-data rows survive long enough to be counted.
+def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
     cur.execute(
         """
         WITH latest_flight AS (
@@ -82,19 +102,25 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
                      price_seen_on DESC NULLS LAST,
                      observed_at DESC
         ),
+        tiers AS (
+            SELECT unnest(%(hotel_tiers)s::text[]) AS hotel_tier
+        ),
         hotel_pick AS (
             SELECT
-                city_name_normalized,
-                CASE %(hotel_tier)s
-                    WHEN 'budget' THEN avg_price_budget_tier_usd
-                    WHEN 'luxury' THEN avg_price_luxury_tier_usd
-                    ELSE avg_price_per_night_usd
+                hp.city_name_normalized,
+                t.hotel_tier,
+                CASE t.hotel_tier
+                    WHEN 'budget' THEN hp.avg_price_budget_tier_usd
+                    WHEN 'luxury' THEN hp.avg_price_luxury_tier_usd
+                    ELSE hp.avg_price_per_night_usd
                 END AS hotel_price_per_night_usd
-            FROM hotel_prices
+            FROM hotel_prices AS hp
+            CROSS JOIN tiers AS t
         ),
         scored AS (
             SELECT
                 d.destination_id, d.city_name,
+                t.hotel_tier,
                 lf.flight_total_usd,
                 lf.flight_out_date,
                 lf.flight_return_date,
@@ -111,10 +137,14 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
                     AS total_estimate_usd,
                 (lf.flight_total_usd IS NULL) AS flight_data_missing,
                 (hpk.hotel_price_per_night_usd IS NULL) AS hotel_data_missing
+            -- Every destination once per tier, so a city with no hotel price
+            -- still shows up (as missing) under each tier.
             FROM destinations AS d
+            CROSS JOIN tiers AS t
             LEFT JOIN latest_flight AS lf ON lf.destination_id = d.destination_id
             LEFT JOIN airlines AS al ON al.airline_code = lf.airline_code
-            LEFT JOIN hotel_pick AS hpk ON hpk.city_name_normalized = d.hotel_data_city_key
+            LEFT JOIN hotel_pick AS hpk
+                ON hpk.city_name_normalized = d.hotel_data_city_key AND hpk.hotel_tier = t.hotel_tier
             WHERE d.is_active
         )
         SELECT *
@@ -126,11 +156,14 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
             "depart_date": depart_date,
             "return_date": return_date,
             "max_drift": MAX_DATE_DRIFT_DAYS,
-            "hotel_tier": hotel_tier,
+            "hotel_tiers": hotel_tiers,
         },
     )
-    rows = cur.fetchall()
+    return cur.fetchall()
 
+
+# The Python half of the estimate rules, for one tier's rows.
+def _apply_estimate_rules(rows, depart_date, return_date, budget_amount_usd):
     viable = [r for r in rows if not r["flight_data_missing"] and not r["hotel_data_missing"]]
     # True only when NOT ONE active destination has both a flight and a hotel
     # match at all. This is what lets an empty result be told apart from
