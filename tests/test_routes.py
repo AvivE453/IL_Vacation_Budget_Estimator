@@ -8,7 +8,9 @@ from contextlib import nullcontext
 
 import pytest
 
+from app.db import PoolExhausted
 from app.main import app
+from app.routes import data_quality as data_quality_routes
 from app.routes import estimate as estimate_routes
 from app.routes import history as history_routes
 from tests.factories import add_exchange_rate, add_flight, add_hotel, add_saved_search
@@ -110,3 +112,17 @@ def test_estimate_statement_count_does_not_grow_with_destinations(client, cur, a
     with_three = statements_for(app_cursor, search)
 
     assert with_one == with_three
+
+
+# --- errors ------------------------------------------------------------------
+
+
+def test_busy_database_is_503_not_500(monkeypatch):
+    def no_free_connection():
+        raise PoolExhausted("no free database connection")
+
+    monkeypatch.setattr(data_quality_routes, "get_cursor", no_free_connection)
+    response = app.test_client().get("/data-quality")
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "1"

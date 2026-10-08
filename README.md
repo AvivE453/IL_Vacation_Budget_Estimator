@@ -44,6 +44,8 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
    cache keeps about a week of quotes, so re-running soon after adds almost nothing
    instead of duplicating the same quotes under a new `observed_at`.
 8. **Run the app**: `uv run flask --app app.main run --debug`, then visit http://127.0.0.1:5000
+9. **Run the JSON API** (in progress, alongside the app): `uv run uvicorn api.main:app --reload --port 8000`,
+   then see the interactive docs at http://127.0.0.1:8000/docs
 
 ## Tests and lint
 
