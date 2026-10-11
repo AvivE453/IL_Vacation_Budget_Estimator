@@ -1,0 +1,1331 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IL Vacation Budget Estimator API",
+    "version": "1"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/origins": {
+      "get": {
+        "summary": "Origins",
+        "operationId": "origins",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Origin"
+                  },
+                  "type": "array",
+                  "title": "Response Origins"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data-quality": {
+      "get": {
+        "summary": "Data Quality",
+        "operationId": "data_quality",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQuality"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/estimates": {
+      "post": {
+        "summary": "Create Estimate",
+        "operationId": "create_estimate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstimateResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/searches": {
+      "get": {
+        "summary": "List Searches",
+        "operationId": "list_searches",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Searches"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/searches/{search_id}": {
+      "get": {
+        "summary": "Get Saved Search",
+        "operationId": "get_saved_search",
+        "parameters": [
+          {
+            "name": "search_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Search Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearch"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/destinations": {
+      "get": {
+        "summary": "Destinations",
+        "operationId": "destinations",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Destination"
+                  },
+                  "type": "array",
+                  "title": "Response Destinations"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/destinations/{destination_id}/trip": {
+      "get": {
+        "summary": "Destination Trip",
+        "operationId": "destination_trip",
+        "parameters": [
+          {
+            "name": "destination_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Destination Id"
+            }
+          },
+          {
+            "name": "depart_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Depart Date"
+            }
+          },
+          {
+            "name": "return_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Return Date"
+            }
+          },
+          {
+            "name": "origin_iata",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "TLV",
+              "title": "Origin Iata"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "ILS",
+                "USD",
+                "EUR"
+              ],
+              "type": "string",
+              "default": "ILS",
+              "title": "Currency"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No free database connection; retry after Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DailyVolume": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "observations_collected": {
+            "type": "integer",
+            "title": "Observations Collected",
+            "description": "Rows the scheduled collector added"
+          },
+          "observations_from_searches": {
+            "type": "integer",
+            "title": "Observations From Searches",
+            "description": "Rows stored from users' live destination views"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "observations_collected",
+          "observations_from_searches"
+        ],
+        "title": "DailyVolume"
+      },
+      "DataQuality": {
+        "properties": {
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/DestinationCoverage"
+            },
+            "type": "array",
+            "title": "Coverage"
+          },
+          "collection_volume": {
+            "items": {
+              "$ref": "#/components/schemas/DailyVolume"
+            },
+            "type": "array",
+            "title": "Collection Volume"
+          }
+        },
+        "type": "object",
+        "required": [
+          "coverage",
+          "collection_volume"
+        ],
+        "title": "DataQuality"
+      },
+      "Destination": {
+        "properties": {
+          "destination_id": {
+            "type": "integer",
+            "title": "Destination Id"
+          },
+          "city_name": {
+            "type": "string",
+            "title": "City Name"
+          },
+          "country_name": {
+            "type": "string",
+            "title": "Country Name"
+          },
+          "iata_code": {
+            "type": "string",
+            "title": "Iata Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "destination_id",
+          "city_name",
+          "country_name",
+          "iata_code"
+        ],
+        "title": "Destination"
+      },
+      "DestinationCoverage": {
+        "properties": {
+          "city_name": {
+            "type": "string",
+            "title": "City Name"
+          },
+          "country_name": {
+            "type": "string",
+            "title": "Country Name"
+          },
+          "flight_obs_count": {
+            "type": "integer",
+            "title": "Flight Obs Count"
+          },
+          "hotel_sample_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hotel Sample Size",
+            "description": "null when the city has no hotel price on file"
+          },
+          "hotel_price_age_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hotel Price Age Days",
+            "description": "null when the city has no hotel price on file"
+          }
+        },
+        "type": "object",
+        "required": [
+          "city_name",
+          "country_name",
+          "flight_obs_count",
+          "hotel_sample_size",
+          "hotel_price_age_days"
+        ],
+        "title": "DestinationCoverage"
+      },
+      "DestinationEstimate": {
+        "properties": {
+          "destination_id": {
+            "type": "integer",
+            "title": "Destination Id"
+          },
+          "city_name": {
+            "type": "string",
+            "title": "City Name"
+          },
+          "airline_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Airline Code"
+          },
+          "airline_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Airline Name",
+            "description": "null when the airline code isn't in our reference table"
+          },
+          "flight_out_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Flight Out Date"
+          },
+          "flight_return_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Flight Return Date"
+          },
+          "matched_nights": {
+            "type": "integer",
+            "title": "Matched Nights",
+            "description": "Nights of the matched flight, which the hotel is priced for - may differ from the request"
+          },
+          "flight_total_amount": {
+            "type": "number",
+            "title": "Flight Total Amount"
+          },
+          "hotel_total_amount": {
+            "type": "number",
+            "title": "Hotel Total Amount"
+          },
+          "total_estimate_amount": {
+            "type": "number",
+            "title": "Total Estimate Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "destination_id",
+          "city_name",
+          "airline_code",
+          "airline_name",
+          "flight_out_date",
+          "flight_return_date",
+          "matched_nights",
+          "flight_total_amount",
+          "hotel_total_amount",
+          "total_estimate_amount"
+        ],
+        "title": "DestinationEstimate"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorDetail"
+      },
+      "EstimateRequest": {
+        "properties": {
+          "origin_iata": {
+            "type": "string",
+            "title": "Origin Iata"
+          },
+          "depart_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Depart Date"
+          },
+          "return_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Return Date"
+          },
+          "budget_amount": {
+            "type": "number",
+            "exclusiveMaximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Budget Amount"
+          },
+          "budget_currency": {
+            "type": "string",
+            "enum": [
+              "ILS",
+              "USD",
+              "EUR"
+            ],
+            "title": "Budget Currency",
+            "default": "ILS"
+          },
+          "hotel_tier": {
+            "type": "string",
+            "enum": [
+              "budget",
+              "average",
+              "luxury"
+            ],
+            "title": "Hotel Tier",
+            "description": "The tier saved to history; the response always has all three",
+            "default": "average"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origin_iata",
+          "depart_date",
+          "return_date",
+          "budget_amount"
+        ],
+        "title": "EstimateRequest"
+      },
+      "EstimateResponse": {
+        "properties": {
+          "search_id": {
+            "type": "integer",
+            "title": "Search Id"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Every amount is in this currency: the budget's, or USD if it has no rate"
+          },
+          "budget_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Amount",
+            "description": "null when the budget currency has no exchange rate - results are then not filtered by budget"
+          },
+          "tiers": {
+            "$ref": "#/components/schemas/TierEstimates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id",
+          "currency",
+          "budget_amount",
+          "tiers"
+        ],
+        "title": "EstimateResponse"
+      },
+      "FlightOption": {
+        "properties": {
+          "airline_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Airline Code"
+          },
+          "airline_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Airline Name"
+          },
+          "flight_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flight Number"
+          },
+          "depart_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depart Time",
+            "description": "Local time at the departure airport"
+          },
+          "return_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Time",
+            "description": "Local time at the return flight's airport"
+          },
+          "outbound_stops": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outbound Stops"
+          },
+          "return_stops": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Stops",
+            "description": "null when the option comes from collected data"
+          },
+          "outbound_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outbound Minutes",
+            "description": "null when the option comes from collected data"
+          },
+          "return_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Minutes",
+            "description": "null when the option comes from collected data"
+          },
+          "price_amount": {
+            "type": "number",
+            "title": "Price Amount",
+            "description": "Round trip, without checked baggage"
+          },
+          "price_seen_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Seen On",
+            "description": "The day a real Aviasales search saw this price; null for prices collected before it was recorded"
+          },
+          "booking_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Booking Url",
+            "description": "Search for this flight on Aviasales; null for collected data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "airline_code",
+          "airline_name",
+          "flight_number",
+          "depart_time",
+          "return_time",
+          "outbound_stops",
+          "return_stops",
+          "outbound_minutes",
+          "return_minutes",
+          "price_amount",
+          "price_seen_on",
+          "booking_url"
+        ],
+        "title": "FlightOption"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Health"
+      },
+      "Hotel": {
+        "properties": {
+          "nights": {
+            "type": "integer",
+            "title": "Nights",
+            "description": "Nights of the flight found, which may differ from the request"
+          },
+          "price_age_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Age Days",
+            "description": "Days since the hotel prices were collected"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotelTierPrice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when this tier has no price on file"
+          },
+          "average": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotelTierPrice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "luxury": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotelTierPrice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "nights",
+          "price_age_days",
+          "budget",
+          "average",
+          "luxury"
+        ],
+        "title": "Hotel"
+      },
+      "HotelTierPrice": {
+        "properties": {
+          "per_night_amount": {
+            "type": "number",
+            "title": "Per Night Amount"
+          },
+          "total_amount": {
+            "type": "number",
+            "title": "Total Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "per_night_amount",
+          "total_amount"
+        ],
+        "title": "HotelTierPrice"
+      },
+      "Origin": {
+        "properties": {
+          "iata_code": {
+            "type": "string",
+            "title": "Iata Code"
+          },
+          "airport_name": {
+            "type": "string",
+            "title": "Airport Name"
+          },
+          "city_name": {
+            "type": "string",
+            "title": "City Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "iata_code",
+          "airport_name",
+          "city_name"
+        ],
+        "title": "Origin"
+      },
+      "SavedResult": {
+        "properties": {
+          "cost_rank": {
+            "type": "integer",
+            "title": "Cost Rank"
+          },
+          "destination_id": {
+            "type": "integer",
+            "title": "Destination Id"
+          },
+          "city_name": {
+            "type": "string",
+            "title": "City Name"
+          },
+          "airline_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Airline Code"
+          },
+          "airline_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Airline Name"
+          },
+          "estimated_total_amount": {
+            "type": "number",
+            "title": "Estimated Total Amount"
+          },
+          "within_budget": {
+            "type": "boolean",
+            "title": "Within Budget"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_rank",
+          "destination_id",
+          "city_name",
+          "airline_code",
+          "airline_name",
+          "estimated_total_amount",
+          "within_budget"
+        ],
+        "title": "SavedResult"
+      },
+      "SavedSearch": {
+        "properties": {
+          "search_id": {
+            "type": "integer",
+            "title": "Search Id"
+          },
+          "origin_iata": {
+            "type": "string",
+            "title": "Origin Iata"
+          },
+          "depart_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Depart Date"
+          },
+          "return_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Return Date"
+          },
+          "budget_amount": {
+            "type": "number",
+            "title": "Budget Amount"
+          },
+          "budget_currency": {
+            "type": "string",
+            "title": "Budget Currency"
+          },
+          "hotel_tier": {
+            "type": "string",
+            "enum": [
+              "budget",
+              "average",
+              "luxury"
+            ],
+            "title": "Hotel Tier"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "exact_dates_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Dates Only",
+            "description": "null for searches saved before this was recorded"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Amounts are in the search's budget currency, or USD if it has no rate"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SavedResult"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "Empty when every destination was over budget"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id",
+          "origin_iata",
+          "depart_date",
+          "return_date",
+          "budget_amount",
+          "budget_currency",
+          "hotel_tier",
+          "created_at",
+          "exact_dates_only",
+          "currency",
+          "results"
+        ],
+        "title": "SavedSearch"
+      },
+      "SearchSummary": {
+        "properties": {
+          "search_id": {
+            "type": "integer",
+            "title": "Search Id"
+          },
+          "origin_iata": {
+            "type": "string",
+            "title": "Origin Iata"
+          },
+          "depart_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Depart Date"
+          },
+          "return_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Return Date"
+          },
+          "budget_amount": {
+            "type": "number",
+            "title": "Budget Amount"
+          },
+          "budget_currency": {
+            "type": "string",
+            "title": "Budget Currency"
+          },
+          "hotel_tier": {
+            "type": "string",
+            "enum": [
+              "budget",
+              "average",
+              "luxury"
+            ],
+            "title": "Hotel Tier"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "search_id",
+          "origin_iata",
+          "depart_date",
+          "return_date",
+          "budget_amount",
+          "budget_currency",
+          "hotel_tier",
+          "created_at"
+        ],
+        "title": "SearchSummary"
+      },
+      "TierEstimate": {
+        "properties": {
+          "exact_dates_only": {
+            "type": "boolean",
+            "title": "Exact Dates Only",
+            "description": "true: every destination matched the requested dates exactly; false: all are the nearest dates"
+          },
+          "has_missing_data": {
+            "type": "boolean",
+            "title": "Has Missing Data",
+            "description": "true only when no destination has both a flight and a hotel price for these dates - as opposed to the budget excluding them all"
+          },
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/DestinationEstimate"
+            },
+            "type": "array",
+            "title": "Destinations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exact_dates_only",
+          "has_missing_data",
+          "destinations"
+        ],
+        "title": "TierEstimate"
+      },
+      "TierEstimates": {
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/TierEstimate"
+          },
+          "average": {
+            "$ref": "#/components/schemas/TierEstimate"
+          },
+          "luxury": {
+            "$ref": "#/components/schemas/TierEstimate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget",
+          "average",
+          "luxury"
+        ],
+        "title": "TierEstimates"
+      },
+      "Trip": {
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/Destination"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Every amount is in this currency: the one requested, or USD if it has no rate"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "collected"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "live: asked for these exact dates just now. collected: from data collected earlier, on the nearest dates. null: no flights either way"
+          },
+          "flight_out_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flight Out Date"
+          },
+          "flight_return_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flight Return Date"
+          },
+          "exact_dates": {
+            "type": "boolean",
+            "title": "Exact Dates",
+            "description": "Whether the flights are for exactly the requested dates"
+          },
+          "flights": {
+            "items": {
+              "$ref": "#/components/schemas/FlightOption"
+            },
+            "type": "array",
+            "title": "Flights",
+            "description": "Cheapest first"
+          },
+          "hotel": {
+            "$ref": "#/components/schemas/Hotel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "destination",
+          "currency",
+          "source",
+          "flight_out_date",
+          "flight_return_date",
+          "exact_dates",
+          "flights",
+          "hotel"
+        ],
+        "title": "Trip"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

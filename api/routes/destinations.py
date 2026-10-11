@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
 from api.deps import Cursor
+from api.errors import NOT_FOUND
 from api.routes.estimates import Currency, require_known_origin
 from app.queries import get_destination, list_active_destinations
 from app.search import display_currency_and_rate
@@ -87,7 +88,7 @@ class Trip(BaseModel):
 # All flight options for one destination on the requested dates, with its
 # hotel prices. Tries Travelpayouts live first; if that fails or has
 # nothing, falls back to the collected data (see app/trip.py).
-@router.get("/destinations/{destination_id}/trip")
+@router.get("/destinations/{destination_id}/trip", responses=NOT_FOUND)
 def destination_trip(destination_id: int, query: Annotated[TripQuery, Query()], cur: Cursor) -> Trip:
     require_known_origin(cur, query.origin_iata, location="query")
     destination = get_destination(cur, destination_id)

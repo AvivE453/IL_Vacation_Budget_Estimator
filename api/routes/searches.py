@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.deps import Cursor, SessionId
+from api.errors import NOT_FOUND
 from api.routes.estimates import HotelTier
 from app.queries import get_recent_searches, get_search, get_search_results
 from app.search import display_currency_and_rate
@@ -49,7 +50,7 @@ def list_searches(cur: Cursor, session_id: SessionId) -> list[SearchSummary]:
 
 # One past search with the ranking saved at the time. Another browser's
 # search is a 404, the same as one that doesn't exist.
-@router.get("/searches/{search_id}")
+@router.get("/searches/{search_id}", responses=NOT_FOUND)
 def get_saved_search(search_id: int, cur: Cursor, session_id: SessionId) -> SavedSearch:
     search = get_search(cur, search_id, session_id)
     if search is None:
