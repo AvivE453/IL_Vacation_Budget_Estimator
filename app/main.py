@@ -2,6 +2,7 @@ import datetime
 
 from flask import Flask
 
+from app.db import PoolExhausted
 from app.routes.data_quality import bp as data_quality_bp
 from app.routes.estimate import bp as estimate_bp
 from app.routes.history import bp as history_bp
@@ -23,6 +24,7 @@ def create_app():
     app.register_blueprint(estimate_bp)
     app.register_blueprint(history_bp)
     app.register_blueprint(data_quality_bp)
+    app.register_error_handler(PoolExhausted, lambda e: ("Server busy, try again shortly", 503, {"Retry-After": "1"}))
     return app
 
 

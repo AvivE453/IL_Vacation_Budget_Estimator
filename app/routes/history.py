@@ -2,8 +2,9 @@ from flask import Blueprint, abort, render_template
 
 from app.db import get_cursor
 from app.queries import get_recent_searches, get_search_results
+from app.search import display_currency_and_rate
 from app.session_id import get_session_id
-from etl.common.currency import from_usd, get_usd_per_unit
+from etl.common.currency import from_usd
 
 bp = Blueprint("history", __name__)
 
@@ -24,15 +25,8 @@ def show(search_query_id):
         if not results:
             abort(404)
 
-        # Display in the currency that search was originally made in
-        display_currency = results[0]["budget_currency"]
         exact_dates_only = results[0]["exact_dates_only"]
-        try:
-            usd_per_unit = get_usd_per_unit(cur, display_currency)
-        except ValueError:
-            # No exchange rate on file for that currency - fall back to
-            # showing the underlying USD amounts rather than failing the page.
-            display_currency, usd_per_unit = "USD", 1.0
+        display_currency, usd_per_unit = display_currency_and_rate(cur, results[0]["budget_currency"])
 
     results =[{**r, "estimated_total_amount": from_usd(r["estimated_total_usd"], usd_per_unit)} for r in results]
 

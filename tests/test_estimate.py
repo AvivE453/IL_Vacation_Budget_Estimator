@@ -6,7 +6,13 @@ import datetime
 
 import pytest
 
-from app.queries import MAX_DATE_DRIFT_DAYS, estimate_all_destinations
+from app.queries import (
+    FRESHNESS_DAYS,
+    HOTEL_TIERS,
+    MAX_DATE_DRIFT_DAYS,
+    estimate_all_destinations,
+    estimate_all_tiers,
+)
 from tests.factories import add_flight, add_hotel
 
 DEPART = datetime.date(2030, 6, 1)
@@ -200,3 +206,112 @@ def test_unknown_airline_code_keeps_the_row(cur):
 
     assert row["airline_code"] == "H3"
     assert row["airline_name"] is None
+
+
+# --- all tiers at once (estimate_all_tiers) ----------------------------------
+
+
+def test_each_tier_matches_estimating_that_tier_alone(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=200)
+    add_flight(cur, "FCO", DEPART, RETURN, price_usd=900)
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "madrid", avg_usd=80, budget_usd=None, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "rome", avg_usd=120, budget_usd=70, luxury_usd=300)
+
+    all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, 2500)
+
+    for tier in HOTEL_TIERS:
+        assert all_tiers[tier] == estimate(cur, budget_usd=2500, hotel_tier=tier)
+
+
+def test_tiers_get_their_own_budget_and_missing_data_verdicts(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+
+    all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, budget_amount_usd=800)
+
+    assert cities(all_tiers["budget"][0]) == ["Barcelona"]  # 300 + 7 * 60 = 720
+    assert all_tiers["average"] == ([], False)  # 300 + 7 * 100 = 1000, over budget
+    assert all_tiers["luxury"] == ([], True)  # no luxury price on file
+
+
+# --- several flights for the same dates (ROADMAP 2.5.1) ----------------------
+# A live destination view stores every option for its dates, so one trip can
+# have many flights: each flight counts at its latest-seen price, prices seen
+# more than FRESHNESS_DAYS before the trip's newest one are dropped, and the
+# cheapest remaining flight wins.
+
+SEEN = datetime.date(2030, 5, 20)
+
+
+def test_cheapest_of_several_flights_for_the_same_dates(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=559, airline_code="LY", price_seen_on=SEEN)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=176, airline_code="W4", price_seen_on=SEEN - days(1))
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    row = estimate(cur)[0][0]
+
+    assert (row["airline_code"], row["flight_total_usd"]) == ("W4", 176)
+
+
+def test_cheaper_flight_seen_well_before_the_newest_price_is_dropped(cur):
+    # The question from the design discussion: cheapest but a month old,
+    # against a pricier one seen two days ago.
+    assert FRESHNESS_DAYS == 7
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", price_seen_on=SEEN - days(30))
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    assert estimate(cur)[0][0]["airline_code"] == "LY"
+
+
+def test_price_seen_exactly_freshness_days_before_the_newest_still_counts(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", price_seen_on=SEEN - days(7))
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=100, airline_code="U2", price_seen_on=SEEN - days(8))
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    assert estimate(cur)[0][0]["airline_code"] == "W4"
+
+
+def test_when_every_price_is_old_the_best_of_them_is_still_shown(cur):
+    # The window is measured from the trip's newest price, not from today.
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN - days(90))
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="W4", price_seen_on=SEEN - days(92))
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    assert estimate(cur)[0][0]["airline_code"] == "W4"
+
+
+def test_rows_without_a_seen_date_use_the_day_we_collected_them(cur):
+    collected = datetime.datetime(2030, 5, 1, tzinfo=datetime.UTC)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", observed_at=collected)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN)
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    # Collected 2030-05-01, 19 days before the newest price: dropped.
+    assert estimate(cur)[0][0]["airline_code"] == "LY"
+
+
+def test_nearest_dates_still_come_before_price_and_freshness(cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=500, airline_code="LY", price_seen_on=SEEN - days(3))
+    add_flight(cur, "BCN", DEPART + days(1), RETURN, price_usd=100, airline_code="W4", price_seen_on=SEEN)
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    assert estimate(cur)[0][0]["airline_code"] == "LY"
+
+
+def test_offers_for_the_same_flight_seen_the_same_day_take_the_cheapest(cur):
+    # Same airline, stops and times at two prices on one seen-on day: two
+    # offers, not a price change. Stored at different moments (a second view
+    # can add the pricier one later), the later one used to win.
+    stored_first = datetime.datetime(2030, 5, 20, 10, tzinfo=datetime.UTC)
+    stored_later = datetime.datetime(2030, 5, 20, 11, tzinfo=datetime.UTC)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=290, airline_code="GQ",
+               price_seen_on=SEEN, observed_at=stored_first)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=376, airline_code="GQ",
+               price_seen_on=SEEN, observed_at=stored_later)
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    assert estimate(cur)[0][0]["flight_total_usd"] == 290

@@ -6,15 +6,17 @@
 
 def add_flight(
     cur, destination_iata, depart_date, return_date, price_usd,
-    airline_code=None, observed_at=None, price_seen_on=None,
+    airline_code=None, observed_at=None, price_seen_on=None, number_of_stops=None,
 ):
     cur.execute(
         """
         INSERT INTO flight_price_observations
             (destination_id, origin_iata, destination_iata, depart_date, return_date,
-             price_amount, currency_code, price_amount_usd, airline_code, observed_at, price_seen_on)
+             price_amount, currency_code, price_amount_usd, airline_code, observed_at, price_seen_on,
+             number_of_stops)
         SELECT destination_id, 'TLV', iata_code, %(depart)s, %(return)s,
-               %(price)s, 'USD', %(price)s, %(airline)s, COALESCE(%(observed_at)s, now()), %(seen_on)s
+               %(price)s, 'USD', %(price)s, %(airline)s, COALESCE(%(observed_at)s, now()), %(seen_on)s,
+               %(stops)s
         FROM destinations
         WHERE iata_code = %(iata)s
         """,
@@ -26,6 +28,7 @@ def add_flight(
             "airline": airline_code,
             "observed_at": observed_at,
             "seen_on": price_seen_on,
+            "stops": number_of_stops,
         },
     )
     assert cur.rowcount == 1, f"no seeded destination with IATA code {destination_iata}"
@@ -41,6 +44,10 @@ def add_hotel(cur, city_key, avg_usd, budget_usd=None, luxury_usd=None, sample_s
         """,
         (city_key.title(), city_key, avg_usd, budget_usd, luxury_usd, sample_size),
     )
+
+
+def add_airline(cur, airline_code, airline_name):
+    cur.execute("INSERT INTO airlines (airline_code, airline_name) VALUES (%s, %s)", (airline_code, airline_name))
 
 
 def add_exchange_rate(cur, currency_code, usd_per_unit):

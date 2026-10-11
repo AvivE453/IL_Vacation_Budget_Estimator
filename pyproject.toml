@@ -5,11 +5,13 @@ description = "Estimates total vacation cost (flight + hotel) from Israel by int
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.143.0",
     "flask>=3.1.3",
     "psycopg2-binary>=2.9.13",
     "python-dotenv>=1.2.4",
     "requests>=2.34.2",
     "tenacity>=9.2.1",
+    "uvicorn>=0.54.0",
 ]
 
 [tool.pytest.ini_options]
@@ -27,6 +29,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
 ]
