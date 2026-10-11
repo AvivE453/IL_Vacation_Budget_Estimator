@@ -1,12 +1,18 @@
 # A destination view: every flight option for one destination on the
-# requested dates - live when Travelpayouts answers, otherwise from the
-# collected data - plus that city's hotel prices. All amounts in USD.
+# requested dates - live when Travelpayouts answers (and then stored as
+# observations, source 'live_search'), otherwise from the collected data -
+# plus that city's hotel prices. All amounts in USD.
 
 import datetime
 from dataclasses import dataclass
 
 from app.live_flights import fetch_live_flight_options
-from app.queries import HOTEL_TIERS, get_airline_names, get_collected_flight_options
+from app.queries import (
+    HOTEL_TIERS,
+    get_airline_names,
+    get_collected_flight_options,
+    insert_live_flight_observations,
+)
 
 
 @dataclass
@@ -38,6 +44,11 @@ def trip_options(cur, origin_iata, destination, depart_date, return_date):
 def _live_or_collected(cur, origin_iata, destination, depart_date, return_date):
     live = fetch_live_flight_options(origin_iata, destination["iata_code"], depart_date, return_date)
     if live:
+        # Every option for the exact dates, where the collector gets only the
+        # cheapest per date pair - kept for later estimates and fallbacks.
+        insert_live_flight_observations(
+            cur, destination["destination_id"], origin_iata, destination["iata_code"], live
+        )
         names = get_airline_names(cur, {o["airline_code"] for o in live if o["airline_code"]})
         return "live", [{**o, "airline_name": names.get(o["airline_code"])} for o in live]
 

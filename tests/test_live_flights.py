@@ -110,9 +110,10 @@ def test_nothing_cached_is_an_empty_list_not_a_failure(fake_get):
         response(500, {}),
         response(200, {"unexpected": "shape"}),
         response(200, {"data": [{**RESULT, "price": None}]}),
+        response(200, {"data": [{**RESULT, "price": 0}]}),
         response(200, {"data": [{k: v for k, v in RESULT.items() if k != "departure_at"}]}),
     ],
-    ids=["timeout", "connection", "429", "500", "no-data-key", "null-price", "missing-field"],
+    ids=["timeout", "connection", "429", "500", "no-data-key", "null-price", "zero-price", "missing-field"],
 )
 def test_any_failure_is_none(fake_get, answer):
     fake_get(answer)

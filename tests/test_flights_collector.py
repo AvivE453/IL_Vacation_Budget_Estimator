@@ -119,9 +119,10 @@ def test_price_already_stored_by_an_earlier_run_is_not_inserted_again(cur, monke
     cur.execute(
         """
         INSERT INTO flight_price_observations
-            (destination_id, origin_iata, destination_iata, depart_date, return_date, price_amount,
-             currency_code, price_amount_usd, number_of_stops, airline_code, observed_at, price_seen_on)
-        VALUES (%s, 'TLV', 'BCN', '2026-06-01', '2026-06-08', 300, 'USD', 300, 0, 'LY', %s, '2026-10-04')
+            (destination_id, origin_iata, destination_iata, depart_date, return_date, depart_time, return_time,
+             price_amount, currency_code, price_amount_usd, number_of_stops, airline_code, observed_at, price_seen_on)
+        VALUES (%s, 'TLV', 'BCN', '2026-06-01', '2026-06-08', '10:00', '18:00',
+                300, 'USD', 300, 0, 'LY', %s, '2026-10-04')
         """,
         (bcn_id(cur), earlier_run),
     )

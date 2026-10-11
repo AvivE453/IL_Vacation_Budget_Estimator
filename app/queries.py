@@ -6,6 +6,68 @@ import psycopg2.extras
 # exact match. beyond that, it's treated as missing data.
 MAX_DATE_DRIFT_DAYS = 4
 
+# A quote stays in that cache for about a week. A flight's price seen more
+# than this many days before the newest price for the same trip has most
+# likely left it - it's no longer a price anyone can get.
+FRESHNESS_DAYS = 7
+
+# The flights a trip can use, shared by estimate_all_destinations and
+# get_collected_flight_options so the ranking and the destination view pick
+# the same flight. For each destination, within MAX_DATE_DRIFT_DAYS of the
+# requested dates:
+#   1. each distinct flight (airline, stops, times) once, at the price seen
+#      most recently - an older price for the same flight is outdated. Those
+#      four don't pin down one offer (the same times can come with another
+#      connection or fare), so on the same seen-on day the cheapest wins;
+#   2. only flights whose price was seen within FRESHNESS_DAYS of the newest
+#      price for the same trip. Measured from that newest price, not from
+#      today: the collector runs by hand, so a quiet fortnight would
+#      otherwise empty every result. An old price drops out only when the
+#      same trip has a price more than FRESHNESS_DAYS newer.
+# Callers then pick the nearest dates and, among those, the cheapest.
+_FRESH_FLIGHTS_CTES = """
+    flight_candidates AS (
+        SELECT f.*,
+               ABS(f.depart_date - %(depart_date)s) + ABS(f.return_date - %(return_date)s) AS date_drift,
+               -- Rows from before price_seen_on existed: the day we collected
+               -- them, the latest they can have been seen.
+               COALESCE(f.price_seen_on, f.observed_at::date) AS seen_on
+        FROM flight_price_observations AS f
+        WHERE f.origin_iata = %(origin_iata)s
+          -- Sargable BETWEEN so idx_flight_obs_depart_date can narrow this
+          -- scan; return_date isn't indexed.
+          AND f.depart_date BETWEEN %(depart_date)s - %(max_drift)s AND %(depart_date)s + %(max_drift)s
+          AND ABS(f.return_date - %(return_date)s) <= %(max_drift)s
+    ),
+    latest_per_flight AS (
+        SELECT DISTINCT ON (destination_id, depart_date, return_date,
+                            airline_code, number_of_stops, depart_time, return_time)
+               *,
+               MAX(seen_on) OVER (PARTITION BY destination_id, depart_date, return_date) AS trip_newest_seen_on
+        FROM flight_candidates
+        -- Same flight seen on the same day at two prices: two offers (a
+        -- different connection or fare), not a price change - the cheaper one.
+        ORDER BY destination_id, depart_date, return_date,
+                 airline_code, number_of_stops, depart_time, return_time,
+                 seen_on DESC, price_amount_usd, observed_at DESC
+    ),
+    fresh_flights AS (
+        SELECT *
+        FROM latest_per_flight
+        WHERE seen_on >= trip_newest_seen_on - %(freshness_days)s
+    )
+"""
+
+
+def _fresh_flights_params(origin_iata, depart_date, return_date):
+    return {
+        "origin_iata": origin_iata,
+        "depart_date": depart_date,
+        "return_date": return_date,
+        "max_drift": MAX_DATE_DRIFT_DAYS,
+        "freshness_days": FRESHNESS_DAYS,
+    }
+
 
 def list_origin_airports(cur):
     cur.execute(
@@ -81,26 +143,18 @@ def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount
 # this SQL, precisely so the missing-data rows survive long enough to be counted.
 def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
     cur.execute(
-        """
-        WITH latest_flight AS (
+        f"""
+        WITH {_FRESH_FLIGHTS_CTES},
+        latest_flight AS (
             SELECT DISTINCT ON (destination_id)
                 destination_id, price_amount_usd AS flight_total_usd,
                 depart_date AS flight_out_date, return_date AS flight_return_date,
                 depart_time AS flight_out_time, return_time AS flight_return_time,
                 airline_code
-            FROM flight_price_observations
-            WHERE origin_iata = %(origin_iata)s
-              -- Sargable BETWEEN so idx_flight_obs_depart_date can narrow this
-              -- scan; return_date and the ORDER BY below aren't indexed.
-              AND depart_date BETWEEN %(depart_date)s - %(max_drift)s AND %(depart_date)s + %(max_drift)s
-              AND ABS(return_date - %(return_date)s) <= %(max_drift)s
-            -- Ties on date drift go to the price seen most recently by a real
-            -- search; rows from before price_seen_on existed fall back to
-            -- when we collected them.
-            ORDER BY destination_id,
-                     ABS(depart_date - %(depart_date)s) + ABS(return_date - %(return_date)s),
-                     price_seen_on DESC NULLS LAST,
-                     observed_at DESC
+            FROM fresh_flights
+            -- The nearest dates; among their flights, the cheapest.
+            ORDER BY destination_id, date_drift, price_amount_usd,
+                     price_seen_on DESC NULLS LAST, observed_at DESC
         ),
         tiers AS (
             SELECT unnest(%(hotel_tiers)s::text[]) AS hotel_tier
@@ -151,13 +205,7 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
         FROM scored
         ORDER BY total_estimate_usd ASC
         """,
-        {
-            "origin_iata": origin_iata,
-            "depart_date": depart_date,
-            "return_date": return_date,
-            "max_drift": MAX_DATE_DRIFT_DAYS,
-            "hotel_tiers": hotel_tiers,
-        },
+        {**_fresh_flights_params(origin_iata, depart_date, return_date), "hotel_tiers": hotel_tiers},
     )
     return cur.fetchall()
 
@@ -336,51 +384,68 @@ def get_destination(cur, destination_id):
 
 
 # The collected flight options for one destination on the date pair nearest
-# the request - the same pair, by the same rules, that estimate_all_destinations
-# would pick. A flight observed several times appears once, at the price
-# seen most recently. Cheapest first; empty beyond MAX_DATE_DRIFT_DAYS.
+# the request, cheapest first - the same flights, by the same rules, that
+# estimate_all_destinations chooses from, so its pick is the first row here.
+# Empty beyond MAX_DATE_DRIFT_DAYS.
 def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, return_date):
     cur.execute(
-        """
-        WITH candidates AS (
+        f"""
+        WITH {_FRESH_FLIGHTS_CTES},
+        destination_flights AS (
             SELECT *
-            FROM flight_price_observations
-            WHERE origin_iata = %(origin_iata)s
-              AND destination_id = %(destination_id)s
-              AND depart_date BETWEEN %(depart_date)s - %(max_drift)s AND %(depart_date)s + %(max_drift)s
-              AND ABS(return_date - %(return_date)s) <= %(max_drift)s
+            FROM fresh_flights
+            WHERE destination_id = %(destination_id)s
         ),
         nearest_pair AS (
             SELECT depart_date, return_date
-            FROM candidates
-            ORDER BY ABS(depart_date - %(depart_date)s) + ABS(return_date - %(return_date)s),
-                     price_seen_on DESC NULLS LAST,
-                     observed_at DESC
+            FROM destination_flights
+            ORDER BY date_drift, price_amount_usd, price_seen_on DESC NULLS LAST, observed_at DESC
             LIMIT 1
-        ),
-        latest_per_flight AS (
-            SELECT DISTINCT ON (c.airline_code, c.number_of_stops, c.depart_time, c.return_time)
-                c.depart_date, c.return_date, c.airline_code, c.number_of_stops,
-                c.depart_time, c.return_time, c.price_amount_usd, c.price_seen_on
-            FROM candidates AS c
-            JOIN nearest_pair AS n ON n.depart_date = c.depart_date AND n.return_date = c.return_date
-            ORDER BY c.airline_code, c.number_of_stops, c.depart_time, c.return_time,
-                     c.price_seen_on DESC NULLS LAST, c.observed_at DESC
         )
-        SELECT lpf.*, al.airline_name
-        FROM latest_per_flight AS lpf
-        LEFT JOIN airlines AS al ON al.airline_code = lpf.airline_code
-        ORDER BY lpf.price_amount_usd
+        SELECT df.depart_date, df.return_date, df.airline_code, al.airline_name, df.number_of_stops,
+               df.depart_time, df.return_time, df.price_amount_usd, df.price_seen_on
+        FROM destination_flights AS df
+        JOIN nearest_pair AS n ON n.depart_date = df.depart_date AND n.return_date = df.return_date
+        LEFT JOIN airlines AS al ON al.airline_code = df.airline_code
+        ORDER BY df.price_amount_usd, df.price_seen_on DESC NULLS LAST, df.observed_at DESC
         """,
-        {
-            "origin_iata": origin_iata,
-            "destination_id": destination_id,
-            "depart_date": depart_date,
-            "return_date": return_date,
-            "max_drift": MAX_DATE_DRIFT_DAYS,
-        },
+        {**_fresh_flights_params(origin_iata, depart_date, return_date), "destination_id": destination_id},
     )
     return cur.fetchall()
+
+
+# Every option a live destination view returned, as new observations. Same
+# skip-what's-stored rule as the collector (no ON CONFLICT target: covers
+# uq_flight_obs and uq_flight_obs_price_seen), so showing the same trip again
+# adds nothing. Returns how many rows were new.
+def insert_live_flight_observations(cur, destination_id, origin_iata, destination_iata, options):
+    rows = [
+        (
+            destination_id, origin_iata, destination_iata, o["depart_date"], o["return_date"],
+            o["depart_time"], o["return_time"], o["price_usd"], o["price_usd"],
+            o["outbound_stops"], o["airline_code"], o["price_seen_on"],
+        )
+        for o in options
+    ]
+    if not rows:
+        return 0
+    # One statement for all rows: execute_values otherwise pages by 100, and
+    # rowcount would then cover only the last page.
+    psycopg2.extras.execute_values(
+        cur,
+        """
+        INSERT INTO flight_price_observations
+            (destination_id, origin_iata, destination_iata, depart_date, return_date,
+             depart_time, return_time, price_amount, price_amount_usd,
+             number_of_stops, airline_code, price_seen_on, currency_code, source)
+        VALUES %s
+        ON CONFLICT DO NOTHING
+        """,
+        rows,
+        template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'USD', 'live_search')",
+        page_size=len(rows),
+    )
+    return cur.rowcount
 
 
 def get_airline_names(cur, airline_codes):
@@ -416,10 +481,14 @@ def get_data_quality_report(cur):
 
 
 # daily collection volume, justifies the "realistic data volume" claim.
+# The collector's rows and those stored from users' destination views are
+# counted apart: only the first is the scheduled collection.
 def get_collection_volume(cur):
     cur.execute(
         """
-        SELECT observed_at::date AS day, COUNT(*) AS observations_collected
+        SELECT observed_at::date AS day,
+               COUNT(*) FILTER (WHERE source = 'collector') AS observations_collected,
+               COUNT(*) FILTER (WHERE source = 'live_search') AS observations_from_searches
         FROM flight_price_observations
         GROUP BY 1
         ORDER BY 1

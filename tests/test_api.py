@@ -14,7 +14,7 @@ from api.deps import db_cursor
 from api.main import app
 from app import trip as trip_module
 from app.db import PoolExhausted
-from app.queries import count_active_destinations
+from app.queries import count_active_destinations, estimate_all_destinations, get_collected_flight_options
 from tests.factories import add_airline, add_exchange_rate, add_flight, add_hotel, add_saved_search
 
 DEPART = datetime.date(2030, 6, 1)
@@ -90,7 +90,9 @@ def test_data_quality_collection_volume_is_per_day(client, cur):
 
     response = client.get("/api/v1/data-quality")
 
-    assert response.json()["collection_volume"] == [{"day": "2030-01-01", "observations_collected": 2}]
+    assert response.json()["collection_volume"] == [
+        {"day": "2030-01-01", "observations_collected": 2, "observations_from_searches": 0}
+    ]
 
 
 # --- POST /api/v1/estimates --------------------------------------------------
@@ -380,7 +382,8 @@ def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_
                price_seen_on=datetime.date(2030, 5, 1))
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=280, airline_code="IZ",
                price_seen_on=datetime.date(2030, 5, 3))
-    add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=250, airline_code="W4", number_of_stops=1)
+    add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=250, airline_code="W4", number_of_stops=1,
+               price_seen_on=datetime.date(2030, 5, 2))
     # Farther from the request, so not the pair shown.
     add_flight(cur, "BCN", DEPART + datetime.timedelta(days=3), RETURN, price_usd=100)
 
@@ -428,3 +431,76 @@ def test_invalid_trip_query_is_422(client, cur, params, field):
     assert response.status_code == 422
     if field:
         assert [e["loc"] for e in response.json()["detail"]] == [["query", field]]
+
+
+# --- storing live results (ROADMAP 2.5.1) ------------------------------------
+
+
+def stored_live_rows(cur):
+    cur.execute(
+        "SELECT airline_code, price_amount_usd, number_of_stops, depart_time FROM flight_price_observations"
+        " WHERE source = 'live_search' ORDER BY price_amount_usd"
+    )
+    return cur.fetchall()
+
+
+def test_live_options_are_stored_once(client, cur, live):
+    live["options"] = [live_option(176), live_option(231, airline_code="W4", depart_time=datetime.time(10, 50))]
+
+    trip(client, cur)
+    trip(client, cur)  # the same quotes again: nothing new
+
+    rows = stored_live_rows(cur)
+    assert [(r["airline_code"], r["price_amount_usd"], r["number_of_stops"]) for r in rows] == [
+        ("IZ", 176, 0),
+        ("W4", 231, 0),
+    ]
+
+
+@pytest.mark.parametrize("second_price", [176, 231], ids=["same-price", "different-price"])
+def test_same_airline_and_stops_at_different_times_are_two_flights(client, cur, live, second_price):
+    # Before ROADMAP 2.5.1 neither duplicate check looked at flight times, so
+    # the second flight was dropped as "already stored" - at a different
+    # price too, since one save shares a single observed_at.
+    live["options"] = [live_option(176), live_option(second_price, depart_time=datetime.time(6, 0))]
+
+    trip(client, cur)
+
+    assert sorted(r["depart_time"] for r in stored_live_rows(cur)) == [datetime.time(6, 0), datetime.time(18, 55)]
+
+
+def test_stored_live_results_feed_the_estimate_and_the_fallback(client, cur, live):
+    add_hotel(cur, "barcelona", avg_usd=100)
+    live["options"] = [live_option(559, airline_code="LY"), live_option(176, airline_code="W4")]
+    trip(client, cur)
+
+    estimate_pick = estimate_all_destinations(cur, "TLV", DEPART, RETURN)[0][0]
+    fallback = get_collected_flight_options(cur, "TLV", barcelona_id(cur), DEPART, RETURN)
+
+    assert (estimate_pick["airline_code"], estimate_pick["flight_total_usd"]) == ("W4", 176)
+    assert [r["airline_code"] for r in fallback] == ["W4", "LY"]  # the ranking's pick comes first
+
+
+def test_collection_volume_counts_searches_apart_from_the_collector(client, cur, live):
+    add_flight(cur, "MAD", DEPART, RETURN, price_usd=250)
+    live["options"] = [live_option(176), live_option(231, airline_code="W4")]
+    trip(client, cur)
+
+    volume = client.get("/api/v1/data-quality").json()["collection_volume"]
+
+    assert [(v["observations_collected"], v["observations_from_searches"]) for v in volume] == [(1, 2)]
+
+
+def test_two_offers_for_the_same_flight_times_are_both_stored_once(client, cur, live):
+    # Seen live 2026-10-08: GQ TLV-BCN 23:30/22:45 offered at $290 and $376 in
+    # one answer - same airline, stops and times, a different connection or
+    # fare. uq_flight_obs ignored the price, so one save kept only the first,
+    # and the next view stored the other.
+    live["options"] = [live_option(290, airline_code="GQ"), live_option(376, airline_code="GQ")]
+
+    trip(client, cur)
+    first_view = [r["price_amount_usd"] for r in stored_live_rows(cur)]
+    trip(client, cur)
+
+    assert first_view == [290, 376]
+    assert len(stored_live_rows(cur)) == 2

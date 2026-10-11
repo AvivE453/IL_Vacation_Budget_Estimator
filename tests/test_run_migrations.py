@@ -93,12 +93,14 @@ def test_only_new_migration_runs(empty_db, migrations_copy):
 
 def test_failed_migration_rolls_back_only_itself(empty_db, migrations_copy):
     migrate(empty_db, migrations_copy)
-    (migrations_copy / "006_good.sql").write_text("CREATE TABLE good_table (id INT);")
-    (migrations_copy / "007_bad.sql").write_text("CREATE TABLE bad_table (id INT); SELECT 1 / 0;")
+    # Numbered past any real migration, so they always run last.
+    (migrations_copy / "998_good.sql").write_text("CREATE TABLE good_table (id INT);")
+    (migrations_copy / "999_bad.sql").write_text("CREATE TABLE bad_table (id INT); SELECT 1 / 0;")
 
     with pytest.raises(psycopg2.errors.DivisionByZero):
         migrate(empty_db, migrations_copy)
 
-    assert _tracked(empty_db)[-1] == "006_good.sql"
+    assert _tracked(empty_db)[-1] == "998_good.sql"
     assert _table_exists(empty_db, "good_table")
     assert not _table_exists(empty_db, "bad_table")
+

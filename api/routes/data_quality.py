@@ -19,7 +19,8 @@ class DestinationCoverage(BaseModel):
 
 class DailyVolume(BaseModel):
     day: datetime.date
-    observations_collected: int
+    observations_collected: int = Field(description="Rows the scheduled collector added")
+    observations_from_searches: int = Field(description="Rows stored from users' live destination views")
 
 
 class DataQuality(BaseModel):

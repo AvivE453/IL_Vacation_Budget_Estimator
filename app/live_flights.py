@@ -57,6 +57,10 @@ def fetch_live_flight_options(origin_iata, destination_iata, depart_date, return
 
 
 def _parse(result):
+    price = float(result["price"])
+    # Options are stored, and flight_price_observations requires a positive price.
+    if price <= 0:
+        raise ValueError(f"non-positive price {price}")
     departure_at = datetime.datetime.fromisoformat(result["departure_at"])
     return_at = datetime.datetime.fromisoformat(result["return_at"])
     link = result.get("link")
@@ -73,7 +77,7 @@ def _parse(result):
         "return_stops": result.get("return_transfers"),
         "outbound_minutes": result.get("duration_to"),
         "return_minutes": result.get("duration_back"),
-        "price_usd": float(result["price"]),
+        "price_usd": price,
         "price_seen_on": price_seen_on(link),
         "booking_url": AVIASALES_URL + link if link else None,
     }
