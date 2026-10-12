@@ -30,7 +30,7 @@ def destinations(cur: Cursor) -> list[Destination]:
     return [Destination.model_validate(row) for row in list_active_destinations(cur)]
 
 
-class TripQuery(BaseModel):
+class TripParams(BaseModel):
     depart_date: datetime.date
     return_date: datetime.date
     origin_iata: str = "TLV"
@@ -38,6 +38,8 @@ class TripQuery(BaseModel):
     travelers: Travelers = 1
     rooms: Rooms = 1
 
+
+class TripQuery(TripParams):
     @model_validator(mode="after")
     def return_after_depart(self):
         if self.return_date <= self.depart_date:
@@ -46,7 +48,23 @@ class TripQuery(BaseModel):
         return self
 
 
+# A date grid's middle pair isn't a trip: moving the grid can center it on a
+# return before the departure, and the grid still has whole rows of real
+# trips. It only needs one - a return after a departure - somewhere in it.
+class GridQuery(TripParams):
+    @model_validator(mode="after")
+    def window_has_a_trip(self):
+        latest_return = self.return_date + datetime.timedelta(days=DATE_GRID_DAYS)
+        earliest_depart = self.depart_date - datetime.timedelta(days=DATE_GRID_DAYS)
+        if latest_return <= earliest_depart:
+            raise ValueError("no return in this grid comes after a departure in it")
+        check_rooms(self.travelers, self.rooms)
+        return self
+
+
 class FlightOption(BaseModel):
+    depart_date: datetime.date
+    return_date: datetime.date
     airline_code: str | None
     airline_name: str | None
     flight_number: str | None
@@ -84,6 +102,10 @@ class Trip(BaseModel):
         description="live: asked for these exact dates just now. collected: from data collected earlier,"
         " on the nearest dates. null: no flights either way"
     )
+    live_status: Literal["found", "empty", "failed", "off"] = Field(
+        description="What the live search did: found options; answered with none for these exact dates"
+        " (the common case - its cache only has dates people searched); failed; or is switched off"
+    )
     flight_out_date: datetime.date | None
     flight_return_date: datetime.date | None
     exact_dates: bool = Field(description="Whether the flights are for exactly the requested dates")
@@ -115,6 +137,7 @@ def destination_trip(destination_id: int, query: Annotated[TripQuery, Query()], 
         destination=Destination.model_validate(destination),
         currency=currency,
         source=trip.source,
+        live_status=trip.live_status,
         flight_out_date=trip.depart_date,
         flight_return_date=trip.return_date,
         exact_dates=trip.depart_date == query.depart_date and trip.return_date == query.return_date,
@@ -157,7 +180,7 @@ class DateGrid(BaseModel):
 # traveler can see which dates are cheaper. Collected data only - no live
 # call, which would be one per cell.
 @router.get("/destinations/{destination_id}/date-grid", responses=NOT_FOUND)
-def destination_date_grid(destination_id: int, query: Annotated[TripQuery, Query()], cur: Cursor) -> DateGrid:
+def destination_date_grid(destination_id: int, query: Annotated[GridQuery, Query()], cur: Cursor) -> DateGrid:
     destination = known_destination(cur, destination_id, query.origin_iata)
     currency, usd_per_unit = display_currency_and_rate(cur, query.currency)
 

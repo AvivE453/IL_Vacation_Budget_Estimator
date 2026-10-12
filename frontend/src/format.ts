@@ -78,12 +78,17 @@ export function clock(time: string | null): string {
   return time === null ? "-" : time.slice(0, 5);
 }
 
-// 305 -> "5:05 ש׳"
+// A flight leg's day and, when known, its time: "ש׳ 7.11, 18:55" or "ש׳ 7.11".
+export function legTime(isoDate: string, time: string | null): string {
+  return time === null ? shortDate(isoDate) : `${shortDate(isoDate)}, ${clock(time)}`;
+}
+
+// 305 -> "5:05" (hours:minutes; the column header names the unit)
 export function duration(minutes: number | null): string {
   if (minutes === null) {
     return "-";
   }
-  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")} ש׳`;
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
 export const TIER_NAMES = { budget: "חסכוני", average: "ממוצע", luxury: "יוקרתי" } as const;

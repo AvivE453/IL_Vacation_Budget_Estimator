@@ -42,12 +42,15 @@ test("a destination's view falls back to collected data and its date grid picks 
   await page.getByRole("button", { name: "הראו את היעד" }).click();
 
   await expect(page.getByRole("heading", { name: "ברצלונה, ספרד" })).toBeVisible();
-  // Live search is off in these tests, so the view uses the collected price.
-  await expect(page.getByText(/אין כרגע תשובה עדכנית, ולכן מוצגים מחירים שנאספו/)).toBeVisible();
+  // Live search is off in these tests, so the view says so and uses the collected price.
+  await expect(page.getByText(/החיפוש העדכני כבוי. מוצגים מחירים שנאספו לתאריכים האלה./)).toBeVisible();
   // The summary for the couple: 2 x $300 + 7 x $100 = $1300 = 5200 ILS.
   await expect(page.getByText("5,200 ₪", { exact: true })).toBeVisible();
   await expect(page.getByText("2,600 ₪ לאדם")).toBeVisible();
-  await expect(page.getByText(/1 מתוך 1/)).toBeVisible();
+  // The flight's own dates in the table (no times: the test data has none).
+  const flightRow = page.getByRole("row", { name: /Arkia/ });
+  await expect(flightRow.getByRole("cell", { name: "ש׳ 1.6", exact: true })).toBeVisible();
+  await expect(flightRow.getByRole("cell", { name: "ש׳ 8.6", exact: true })).toBeVisible();
 
   await expect(page.getByText(/יש לנו מחירים ל-4 מתוך 49 צירופי תאריכים/)).toBeVisible();
   // The cheapest flight on file nearby: $210 = 840 ILS, out 3 days later and back a day early.

@@ -406,6 +406,16 @@ export interface components {
         };
         /** FlightOption */
         FlightOption: {
+            /**
+             * Depart Date
+             * Format: date
+             */
+            depart_date: string;
+            /**
+             * Return Date
+             * Format: date
+             */
+            return_date: string;
             /** Airline Code */
             airline_code: string | null;
             /** Airline Name */
@@ -659,6 +669,12 @@ export interface components {
              * @description live: asked for these exact dates just now. collected: from data collected earlier, on the nearest dates. null: no flights either way
              */
             source: ("live" | "collected") | null;
+            /**
+             * Live Status
+             * @description What the live search did: found options; answered with none for these exact dates (the common case - its cache only has dates people searched); failed; or is switched off
+             * @enum {string}
+             */
+            live_status: "found" | "empty" | "failed" | "off";
             /** Flight Out Date */
             flight_out_date: string | null;
             /** Flight Return Date */

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -18,25 +18,32 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// Answers the trip and date-grid calls; returns the dates each trip call asked for.
+// Answers the trip and date-grid calls; returns the dates each call asked for.
 function answer(tripBody: Schemas["Trip"], grid: Schemas["DateGrid"] = dateGrid()) {
   const tripDates: string[] = [];
+  const gridDates: string[] = [];
+  const datesOf = (url: string) => {
+    const query = new URL(url).searchParams;
+    return `${query.get("depart_date")} -> ${query.get("return_date")}`;
+  };
   server.use(
     http.get("/api/v1/destinations/:id/trip", ({ request }) => {
-      const query = new URL(request.url).searchParams;
-      tripDates.push(`${query.get("depart_date")} -> ${query.get("return_date")}`);
+      tripDates.push(datesOf(request.url));
       return HttpResponse.json(tripBody);
     }),
-    http.get("/api/v1/destinations/:id/date-grid", () => HttpResponse.json(grid)),
+    http.get("/api/v1/destinations/:id/date-grid", ({ request }) => {
+      gridDates.push(datesOf(request.url));
+      return HttpResponse.json(grid);
+    }),
   );
-  return tripDates;
+  return { tripDates, gridDates };
 }
 
 function flightsTable() {
   return screen.getAllByRole("table").find((t) => !t.classList.contains("date-grid"))!;
 }
 
-test("shows every live option with the hotel, the budget count and booking links", async () => {
+test("shows every live option with its dates, the hotel, and booking links", async () => {
   answer(trip());
   renderApp(TRIP_URL);
 
@@ -45,22 +52,18 @@ test("shows every live option with the hotel, the budget count and booking links
   // The summary: the cheapest flight (745) + 7 nights of the average hotel (6300).
   expect(screen.getByText("7,045 ₪")).toBeVisible();
   expect(screen.getByText("(900 ₪ ללילה)")).toBeVisible();
-  // 745 + 6300 fits the 7500 budget, 1460 + 6300 doesn't.
-  expect(screen.getByText(/אפשרויות נכנסות בתקציב שלך/)).toHaveTextContent(
-    "1 מתוך 2 אפשרויות נכנסות בתקציב שלך עם מלון ממוצע.",
-  );
   expect(screen.getByText(/בלי מזוודה/)).toBeVisible();
   expect(bodyRows(flightsTable()).map(cellTexts)[0]).toEqual([
     "Air France 975",
-    "15:55",
-    "09:00",
+    "ש׳ 7.11, 15:55", // the flights' own dates, not just times
+    "ש׳ 14.11, 09:00",
     "0 / 0",
-    "4:50 ש׳ / 4:15 ש׳",
+    "4:50 / 4:15",
     "1,460 ₪",
     "נראה לפני 6 ימים",
-    "לחיפוש ב-Aviasales",
+    "Aviasales ↗",
   ]);
-  expect(within(flightsTable()).getAllByRole("link", { name: "לחיפוש ב-Aviasales" })[0]).toHaveAttribute(
+  expect(within(flightsTable()).getAllByRole("link", { name: "לחיפוש הטיסה ב-Aviasales" })[0]).toHaveAttribute(
     "href",
     "https://www.aviasales.com/search/TLV0711PAR14111",
   );
@@ -74,8 +77,6 @@ test("for a couple, flights are per traveler and the total is for both", async (
   // 2 x 745 + 6300 (one room) = 7790.
   expect(screen.getByText("7,790 ₪")).toBeVisible();
   expect(screen.getByText("3,895 ₪ לאדם")).toBeVisible();
-  // 2 x 745 + 6300 fits 8000; 2 x 1460 + 6300 doesn't.
-  expect(screen.getByText(/אפשרויות נכנסות בתקציב שלך/)).toHaveTextContent("1 מתוך 2");
   expect(cellTexts(bodyRows(flightsTable())[0])[5]).toBe("1,460 ₪"); // the list stays per traveler
 });
 
@@ -89,7 +90,7 @@ test("direct-only hides flights with a stop", async () => {
   expect(bodyRows(flightsTable()).map((row) => cellTexts(row)[0])).toEqual(["Air France 975"]);
 });
 
-test("a tier with no hotel price says so instead of counting the budget", async () => {
+test("a tier with no hotel price says so", async () => {
   answer(trip());
   const { user } = renderApp(TRIP_URL);
   await screen.findByRole("heading", { name: "פריז, צרפת" });
@@ -97,13 +98,13 @@ test("a tier with no hotel price says so instead of counting the budget", async 
   await user.click(screen.getByRole("button", { name: "מלון יוקרתי" }));
 
   expect(screen.getByText("אין לנו מחיר למלון יוקרתי בעיר הזו.")).toBeVisible();
-  expect(screen.queryByText(/נכנסות בתקציב שלך/)).not.toBeInTheDocument();
 });
 
-test("without a live answer it says which collected dates it shows", async () => {
+test("when the live search has nothing for these dates, it says so and which collected dates it shows", async () => {
   answer(
     trip({
       source: "collected",
+      live_status: "empty",
       exact_dates: false,
       flight_out_date: "2026-11-08",
       flights: [flight({ return_stops: null, outbound_minutes: null, return_minutes: null, booking_url: null })],
@@ -111,14 +112,51 @@ test("without a live answer it says which collected dates it shows", async () =>
   );
   renderApp(TRIP_URL);
 
-  expect(await screen.findByText(/מוצגים מחירים שנאספו לתאריכים הקרובים: 8.11.2026 – 14.11.2026/)).toBeVisible();
+  const note = await screen.findByText(/לא נמצאו מחירים לתאריכים המדויקים האלה/);
+  expect(note).toHaveTextContent("מוצגים מחירים שנאספו לתאריכים הקרובים: 8.11.2026 – 14.11.2026.");
+  expect(note).toHaveTextContent("התאים הירוקים במפת החום למטה הם תאריכים שיש להם מחירים.");
+  expect(note).not.toHaveTextContent("נכשל"); // an empty answer isn't a failure
   // The collector keeps the outbound stops only - no return stops, durations or booking link.
   expect(cellTexts(bodyRows(flightsTable())[0]).slice(3, 5)).toEqual(["0 / -", "- / -"]);
   expect(within(flightsTable()).queryByRole("link")).not.toBeInTheDocument();
 });
 
+test.each([
+  ["failed", "החיפוש העדכני נכשל."],
+  ["off", "החיפוש העדכני כבוי."],
+] as const)("a live search that %s says so", async (liveStatus, sentence) => {
+  answer(trip({ source: "collected", live_status: liveStatus, exact_dates: true }));
+  renderApp(TRIP_URL);
+
+  const note = await screen.findByText(new RegExp(sentence));
+  expect(note).toHaveTextContent(`${sentence} מוצגים מחירים שנאספו לתאריכים האלה.`);
+});
+
+test("live prices for the exact dates don't point to the date grid", async () => {
+  answer(trip());
+  renderApp(TRIP_URL);
+
+  const note = await screen.findByText(/מחירים עדכניים לתאריכים המדויקים/);
+  expect(note).not.toHaveTextContent("מפת החום");
+});
+
+test("past departures in the date grid are unavailable, not offered", async () => {
+  // Today is 12.10: a trip on 13.10 shows departures from 10.10 - two already gone.
+  answer(
+    trip(),
+    dateGrid([gridCell("2026-10-10", "2026-10-20", 300), gridCell("2026-10-13", "2026-10-20", 500)]),
+  );
+  renderApp(TRIP_URL.replace(`depart_date=${DEPART}&return_date=${RETURN}`, "depart_date=2026-10-13&return_date=2026-10-20"));
+
+  // Only the 13.10 cell counts and can be picked; 10.10 has a price but is in the past.
+  expect(await screen.findByText(/יש לנו מחירים ל-1 מתוך/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: /יציאה 10.10.2026/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /יציאה 13.10.2026, חזרה 20.10.2026/ })).toBeVisible();
+  expect(screen.getAllByTitle("תאריך היציאה כבר עבר")).not.toHaveLength(0);
+});
+
 test("the date grid shows missing pairs as empty, and a picked cell becomes the search", async () => {
-  const tripDates = answer(
+  const { tripDates } = answer(
     trip(),
     dateGrid([
       gridCell(DEPART, RETURN, 1460),
@@ -142,6 +180,41 @@ test("the date grid shows missing pairs as empty, and a picked cell becomes the 
 
   expect(await screen.findByText(/4.11.2026 – 11.11.2026/)).toBeVisible();
   expect(tripDates).toEqual([`${DEPART} -> ${RETURN}`, "2026-11-04 -> 2026-11-11"]);
+});
+
+test("the arrows move the date grid a week, and a button brings it back", async () => {
+  const { tripDates, gridDates } = answer(trip(), dateGrid([gridCell(DEPART, RETURN, 1460)]));
+  const { user } = renderApp(TRIP_URL);
+  await screen.findByText(/יש לנו מחירים ל-1 מתוך/);
+
+  await user.click(screen.getByRole("button", { name: "חזרה מאוחרת יותר" }));
+  await waitFor(() => expect(gridDates.at(-1)).toBe("2026-11-07 -> 2026-11-21"));
+  expect(await screen.findByRole("columnheader", { name: /ש׳ 21.11/ })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "יציאה מאוחרת יותר" }));
+  await waitFor(() => expect(gridDates.at(-1)).toBe("2026-11-14 -> 2026-11-21"));
+
+  await user.click(screen.getByRole("button", { name: "חזרה לתאריכים שבחרתם" }));
+  await waitFor(() => expect(gridDates.at(-1)).toBe(`${DEPART} -> ${RETURN}`));
+  expect(screen.queryByRole("button", { name: "חזרה לתאריכים שבחרתם" })).not.toBeInTheDocument();
+  expect(tripDates).toEqual([`${DEPART} -> ${RETURN}`]); // moving the grid never changed the trip
+});
+
+// The form's default trip leaves today, so its grid already starts in the
+// past: the arrows must still move it - only not to earlier departures.
+test("a trip leaving today can still move its date grid later", async () => {
+  const { gridDates } = answer(trip(), dateGrid());
+  const { user } = renderApp(TRIP_URL.replace(`depart_date=${DEPART}&return_date=${RETURN}`, "depart_date=2026-10-12&return_date=2026-10-19"));
+  await screen.findByText(/יש לנו מחירים ל-0 מתוך/);
+
+  expect(screen.getByRole("button", { name: "יציאה מוקדמת יותר" })).toBeDisabled(); // all in the past
+  for (const name of ["יציאה מאוחרת יותר", "חזרה מאוחרת יותר", "חזרה מוקדמת יותר"]) {
+    expect(screen.getByRole("button", { name })).toBeEnabled();
+  }
+
+  // A week later: centered on 19.10 for both - not a trip itself, but the grid holds trips.
+  await user.click(screen.getByRole("button", { name: "יציאה מאוחרת יותר" }));
+  await waitFor(() => expect(gridDates.at(-1)).toBe("2026-10-19 -> 2026-10-19"));
 });
 
 test("an unknown destination is not found after one request, without retries", async () => {

@@ -536,3 +536,60 @@ tbody tr:hover {
 .party-row .field {
   width: 7rem;
 }
+
+/* The arrows sit inside the first and last date headers and move the grid a week. */
+.grid-arrow {
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--white);
+  border-radius: 6px;
+  margin: 0 0.3rem;
+  padding: 0.05rem 0.4rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.grid-arrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.grid-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* The corner is cut by a diagonal from top-right to bottom-left: "חזרה" in the
+   top-left half, beside the return dates, "יציאה" in the bottom-right half,
+   above the departure dates. A corner-to-corner gradient's 50% line joins the
+   other two corners. */
+.date-grid th.grid-corner {
+  position: relative;
+  min-width: 7rem;
+  height: 3.2rem;
+  background:
+    linear-gradient(to top left, transparent calc(50% - 1px), rgba(255, 255, 255, 0.8) 50%, transparent calc(50% + 1px)),
+    var(--blue-dark);
+}
+
+.corner-return,
+.corner-depart {
+  position: absolute;
+  font-size: 0.85rem;
+}
+
+.corner-return {
+  top: 0.3rem;
+  left: 0.55rem;
+}
+
+.corner-depart {
+  bottom: 0.3rem;
+  right: 0.55rem;
+}
+
+/* One line per cell: a date and its time, or an amount and its currency,
+   belong together. On a narrow screen the table scrolls sideways instead. */
+.flights-table td {
+  white-space: nowrap;
+  padding-inline: 0.6rem;
+}

@@ -64,6 +64,8 @@ export function estimateResponse(overrides: Partial<Schemas["EstimateResponse"]>
 
 export function flight(overrides: Partial<Schemas["FlightOption"]> = {}): Schemas["FlightOption"] {
   return {
+    depart_date: DEPART,
+    return_date: RETURN,
     airline_code: "AF",
     airline_name: "Air France",
     flight_number: "975",
@@ -85,6 +87,7 @@ export function trip(overrides: Partial<Schemas["Trip"]> = {}): Schemas["Trip"] 
     destination: destination(),
     currency: "ILS",
     source: "live",
+    live_status: "found",
     flight_out_date: DEPART,
     flight_return_date: RETURN,
     exact_dates: true,

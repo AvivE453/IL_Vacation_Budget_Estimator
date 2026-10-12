@@ -8,6 +8,7 @@ import {
   daysSince,
   duration,
   formatDate,
+  legTime,
   money,
   nights,
   nightsBetween,
@@ -71,5 +72,6 @@ test("money is whole units with the currency's symbol", () => {
 test("nights, clock and duration", () => {
   expect([nights(1), nights(7)]).toEqual(["לילה אחד", "7 לילות"]);
   expect([clock("18:55:00"), clock(null)]).toEqual(["18:55", "-"]);
-  expect([duration(305), duration(60), duration(null)]).toEqual(["5:05 ש׳", "1:00 ש׳", "-"]);
+  expect([legTime("2026-11-07", "18:55:00"), legTime("2026-11-07", null)]).toEqual(["ש׳ 7.11, 18:55", "ש׳ 7.11"]);
+  expect([duration(305), duration(60), duration(null)]).toEqual(["5:05", "1:00", "-"]);
 });

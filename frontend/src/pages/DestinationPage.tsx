@@ -7,7 +7,6 @@ import AgeTag, { FLIGHT_STALE_AFTER_DAYS, HOTEL_STALE_AFTER_DAYS } from "../comp
 import DateGrid from "../components/DateGrid";
 import {
   cityName,
-  clock,
   countryName,
   crowdedRoomNote,
   daysSince,
@@ -18,12 +17,22 @@ import {
   nights,
   nightsBetween,
   TIER_NAMES,
+  legTime,
   rooms,
   TIERS,
   travelers,
 } from "../format";
 
 type Currency = Schemas["EstimateRequest"]["budget_currency"] & string;
+
+// What the live search for the exact dates did. "empty" is the common case:
+// its cache only holds dates people have searched - not a failure.
+const LIVE_STATUS: Record<Schemas["Trip"]["live_status"], string> = {
+  found: "מחירים עדכניים לתאריכים המדויקים.",
+  empty: "לא נמצאו מחירים לתאריכים המדויקים האלה.",
+  failed: "החיפוש העדכני נכשל.",
+  off: "החיפוש העדכני כבוי.",
+};
 
 // One destination on the user's dates: every flight option (live when
 // Travelpayouts answers), the city's hotel prices, and the flexible-dates grid.
@@ -58,13 +67,6 @@ export default function DestinationPage() {
     // After picking other dates, keep showing the last trip until the new one arrives.
     placeholderData: keepPreviousData,
   });
-  const grid = useQuery({
-    queryKey: ["date-grid", destinationId, query],
-    queryFn: () => unwrap(api.GET("/api/v1/destinations/{destination_id}/date-grid", { params: { path, query } })),
-    enabled: ready,
-    placeholderData: keepPreviousData,
-  });
-
   function updateSearch(changes: Record<string, string>) {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
@@ -93,14 +95,11 @@ export default function DestinationPage() {
 
   const t = trip.data;
   const hotel = t.hotel[tier];
-  // The budget is in the currency asked for; if that had no rate the trip is in USD and can't be compared.
-  const canCompareBudget = budget !== null && t.currency === query.currency && hotel !== null;
   const flights = t.flights.filter(
     (f) => !directOnly || (f.outbound_stops === 0 && (f.return_stops === 0 || f.return_stops === null)),
   );
   // A flight's price is per traveler; the hotel's total already covers every room.
   const partyCost = (flightPrice: number) => flightPrice * query.travelers + (hotel?.total_amount ?? 0);
-  const withinBudget = canCompareBudget ? t.flights.filter((f) => partyCost(f.price_amount) <= budget) : [];
   const roomNote = crowdedRoomNote(query.travelers, query.rooms);
   const requestedNights = nightsBetween(query.depart_date, query.return_date);
   const cheapestFlight = t.flights.length > 0 ? Math.min(...t.flights.map((f) => f.price_amount)) : null;
@@ -150,11 +149,12 @@ export default function DestinationPage() {
           </p>
         )}
         <p className="note">
-          {t.source === "live" && "מחירים עדכניים לתאריכים המדויקים."}
+          {LIVE_STATUS[t.live_status]}
           {t.source === "collected" &&
             (t.exact_dates
-              ? "אין כרגע תשובה עדכנית, ולכן מוצגים מחירים שנאספו לתאריכים האלה."
-              : `אין תשובה עדכנית לתאריכים האלה, ולכן מוצגים מחירים שנאספו לתאריכים הקרובים: ${formatDate(t.flight_out_date!)} – ${formatDate(t.flight_return_date!)}.`)}{" "}
+              ? " מוצגים מחירים שנאספו לתאריכים האלה."
+              : ` מוצגים מחירים שנאספו לתאריכים הקרובים: ${formatDate(t.flight_out_date!)} – ${formatDate(t.flight_return_date!)}.`)}
+          {t.live_status !== "found" && " התאים הירוקים במפת החום למטה הם תאריכים שיש להם מחירים."}{" "}
           <AgeTag label="מחירי המלון עודכנו" days={t.hotel.price_age_days} staleAfter={HOTEL_STALE_AFTER_DAYS} />
         </p>
         {roomNote && <p className="note">{roomNote}</p>}
@@ -170,14 +170,6 @@ export default function DestinationPage() {
       {t.flights.length > 0 && (
         <section className="card">
           <h2>טיסות</h2>
-          {canCompareBudget && (
-            <p>
-              <strong>
-                {withinBudget.length} מתוך {t.flights.length}
-              </strong>{" "}
-              אפשרויות נכנסות בתקציב שלך עם מלון {TIER_NAMES[tier]}.
-            </p>
-          )}
           <label>
             <input type="checkbox" checked={directOnly} onChange={(e) => setDirectOnly(e.target.checked)} /> טיסות
             ישירות בלבד
@@ -187,17 +179,17 @@ export default function DestinationPage() {
             {t.source === "collected" && " במחירים שנאספו אין פרטים על העצירות ומשך הטיסה בחזור."}
           </p>
           <div className="table-scroll">
-            <table>
+            <table className="flights-table">
               <thead>
                 <tr>
                   <th>חברה</th>
-                  <th>המראה</th>
-                  <th>חזרה</th>
+                  <th>הלוך</th>
+                  <th>חזור</th>
                   <th>עצירות (הלוך / חזור)</th>
-                  <th>משך (הלוך / חזור)</th>
+                  <th>משך בשעות (הלוך / חזור)</th>
                   <th>מחיר לאדם</th>
                   <th>המחיר נראה</th>
-                  <th></th>
+                  <th>חיפוש</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,8 +200,8 @@ export default function DestinationPage() {
                       {f.airline_name ?? f.airline_code ?? "-"}
                       {f.flight_number && <small> {f.flight_number}</small>}
                     </td>
-                    <td>{clock(f.depart_time)}</td>
-                    <td>{clock(f.return_time)}</td>
+                    <td>{legTime(f.depart_date, f.depart_time)}</td>
+                    <td>{legTime(f.return_date, f.return_time)}</td>
                     <td>
                       {f.outbound_stops ?? "-"} / {f.return_stops ?? "-"}
                     </td>
@@ -226,8 +218,14 @@ export default function DestinationPage() {
                     </td>
                     <td>
                       {f.booking_url && (
-                        <a href={f.booking_url} target="_blank" rel="noopener noreferrer">
-                          לחיפוש ב-Aviasales
+                        <a
+                          href={f.booking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="לחיפוש הטיסה ב-Aviasales"
+                          title="לחיפוש הטיסה ב-Aviasales"
+                        >
+                          Aviasales ↗
                         </a>
                       )}
                     </td>
@@ -240,17 +238,13 @@ export default function DestinationPage() {
         </section>
       )}
 
-      {grid.isPending && <p className="updating">טוען תאריכים גמישים...</p>}
-      {grid.error && <p className="error">לא הצלחנו לטעון תאריכים גמישים: {grid.error.message}</p>}
-      {grid.data && (
-        <DateGrid
-          grid={grid.data}
-          departDate={query.depart_date}
-          returnDate={query.return_date}
-          tier={tier}
-          onPick={(depart, back) => updateSearch({ depart_date: depart, return_date: back })}
-        />
-      )}
+      <DateGrid
+        key={`${query.depart_date}|${query.return_date}`}
+        destinationId={destinationId}
+        query={query}
+        tier={tier}
+        onPick={(depart, back) => updateSearch({ depart_date: depart, return_date: back })}
+      />
     </>
   );
 }

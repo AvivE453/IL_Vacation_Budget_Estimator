@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from api.deps import db_cursor
 from api.main import app
+from app import live_flights as live_flights_module
 from app import trip as trip_module
 from app.db import PoolExhausted
 from app.queries import count_active_destinations, estimate_all_destinations, get_collected_flight_options
@@ -27,6 +28,8 @@ RETURN = datetime.date(2030, 6, 8)
 def live(monkeypatch):
     answer = {"options": None}
     monkeypatch.setattr(trip_module, "fetch_live_flight_options", lambda *args: answer["options"])
+    # Switched on whatever .env says, so a None answer reads as a failure.
+    monkeypatch.setattr(live_flights_module, "LIVE_FLIGHT_SEARCH", True)
     return answer
 
 
@@ -469,11 +472,13 @@ def test_trip_shows_live_options_with_hotel_prices(client, cur, live):
 
     body = trip(client, cur, currency="ILS").json()
 
-    assert body["source"] == "live"
+    assert (body["source"], body["live_status"]) == ("live", "found")
     assert body["exact_dates"] is True
     assert (body["flight_out_date"], body["flight_return_date"]) == ("2030-06-01", "2030-06-08")
     assert body["currency"] == "ILS"
     assert body["flights"][0] == {
+        "depart_date": "2030-06-01",
+        "return_date": "2030-06-08",
         "airline_code": "IZ",
         "airline_name": "Arkia",
         "flight_number": "6404",
@@ -498,8 +503,10 @@ def test_trip_shows_live_options_with_hotel_prices(client, cur, live):
     }
 
 
-@pytest.mark.parametrize("live_answer", [None, []], ids=["live-failed", "live-empty"])
-def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_answer):
+@pytest.mark.parametrize(
+    ("live_answer", "live_status"), [(None, "failed"), ([], "empty")], ids=["live-failed", "live-empty"]
+)
+def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_answer, live_status):
     live["options"] = live_answer
     add_hotel(cur, "barcelona", avg_usd=100)
     nearest_depart = DEPART + datetime.timedelta(days=1)  # a 6-night trip
@@ -515,7 +522,7 @@ def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_
 
     body = trip(client, cur).json()
 
-    assert body["source"] == "collected"
+    assert (body["source"], body["live_status"]) == ("collected", live_status)
     assert body["exact_dates"] is False
     assert body["flight_out_date"] == nearest_depart.isoformat()
     assert [(f["airline_code"], f["price_amount"]) for f in body["flights"]] == [("W4", 250.0), ("IZ", 280.0)]
@@ -523,6 +530,12 @@ def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_
     assert w4["outbound_stops"] == 1
     assert [w4[k] for k in ("return_stops", "outbound_minutes", "return_minutes", "booking_url")] == [None] * 4
     assert body["hotel"]["nights"] == 6
+
+
+def test_live_search_switched_off_is_told_apart_from_a_failure(client, cur, monkeypatch):
+    monkeypatch.setattr(live_flights_module, "LIVE_FLIGHT_SEARCH", False)
+
+    assert trip(client, cur).json()["live_status"] == "off"
 
 
 def test_trip_with_no_flights_anywhere(client, cur):
@@ -615,6 +628,19 @@ def test_trip_and_date_grid_price_the_whole_party(client, cur, live):
     cell = grid["cells"][0]
     assert cell["flight_amount"] == 250
     assert cell["total_amount"] == {"budget": 4 * 250 + 2 * 7 * 60, "average": 4 * 250 + 2 * 7 * 100, "luxury": None}
+
+
+def test_date_grid_can_center_on_a_return_before_the_departure(client, cur):
+    # Moved a week later from a 7-night trip: centered on the same day (the
+    # 8th), yet the grid still holds trips - here out on the 6th, back on the 9th.
+    add_flight(cur, "BCN", RETURN - days(2), RETURN + days(1), price_usd=210)
+    response = date_grid(client, cur, depart_date=RETURN.isoformat(), return_date=RETURN.isoformat())
+
+    assert response.status_code == 200
+    assert [c["flight_amount"] for c in response.json()["cells"]] == [210.0]
+    # But a grid with no return after any of its departures is a 422.
+    far_back = (RETURN - days(7)).isoformat()
+    assert date_grid(client, cur, depart_date=RETURN.isoformat(), return_date=far_back).status_code == 422
 
 
 def test_date_grid_without_flights_or_destination(client, cur):

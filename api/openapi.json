@@ -1006,6 +1006,16 @@
       },
       "FlightOption": {
         "properties": {
+          "depart_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Depart Date"
+          },
+          "return_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Return Date"
+          },
           "airline_code": {
             "anyOf": [
               {
@@ -1145,6 +1155,8 @@
         },
         "type": "object",
         "required": [
+          "depart_date",
+          "return_date",
           "airline_code",
           "airline_name",
           "flight_number",
@@ -1644,6 +1656,17 @@
             "title": "Source",
             "description": "live: asked for these exact dates just now. collected: from data collected earlier, on the nearest dates. null: no flights either way"
           },
+          "live_status": {
+            "type": "string",
+            "enum": [
+              "found",
+              "empty",
+              "failed",
+              "off"
+            ],
+            "title": "Live Status",
+            "description": "What the live search did: found options; answered with none for these exact dates (the common case - its cache only has dates people searched); failed; or is switched off"
+          },
           "flight_out_date": {
             "anyOf": [
               {
@@ -1690,6 +1713,7 @@
           "destination",
           "currency",
           "source",
+          "live_status",
           "flight_out_date",
           "flight_return_date",
           "exact_dates",
