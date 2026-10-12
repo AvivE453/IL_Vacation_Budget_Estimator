@@ -47,6 +47,11 @@ class DestinationEstimate(BaseModel):
     flight_total_amount: float
     hotel_total_amount: float
     total_estimate_amount: float
+    flight_seen_on: datetime.date = Field(
+        description="The day a real search last saw this flight price - or, for prices collected before"
+        " that was recorded, the day we collected it"
+    )
+    hotel_price_age_days: int = Field(description="Days since the city's hotel prices were collected")
 
 
 class TierEstimate(BaseModel):

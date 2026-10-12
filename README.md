@@ -21,7 +21,6 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
 2. **Install dependencies**: `uv sync` -- creates `.venv/` with the Python version pinned in `.python-version` and the exact package versions locked in `uv.lock`.
 3. **Configure secrets**: `cp .env.example .env`, then fill in:
    - `DB_URL` -- matching the user/password/database from step 1.
-   - `FLASK_SECRET_KEY` -- any random string (`uv run python -c "import secrets; print(secrets.token_hex(32))"`); the app refuses to start without it.
    - `TRAVELPAYOUTS_TOKEN` and `TRAVELPAYOUTS_MARKER` -- register free at
      https://www.travelpayouts.com/programs/100/tools/api (needed for flights only).
 4. **Apply schema**: `uv run python -m etl.loaders.run_migrations` -- safe to rerun; it records applied files in `schema_migrations` and runs only new ones.
@@ -43,12 +42,16 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
    saw it (`price_seen_on`), and a run only stores prices it doesn't already have -- the
    cache keeps about a week of quotes, so re-running soon after adds almost nothing
    instead of duplicating the same quotes under a new `observed_at`.
-8. **Run the app**: `uv run flask --app app.main run --debug`, then visit http://127.0.0.1:5000
-9. **Run the JSON API** (alongside the app, until React replaces its pages): `uv run uvicorn api.main:app --reload --port 8000`,
-   then see the interactive docs at http://127.0.0.1:8000/docs. Its OpenAPI schema is also
-   saved in [api/openapi.json](api/openapi.json), which the React app's TypeScript types will be
-   generated from; after changing a route or model, rerun `uv run python -m api.export_openapi`
-   (a test fails until the file matches the code).
+8. **Run the API**: `uv run uvicorn api.main:app --reload --port 8000`, then see the
+   interactive docs at http://127.0.0.1:8000/docs. Its OpenAPI schema is also saved in
+   [api/openapi.json](api/openapi.json), which the React app's TypeScript types are generated
+   from; after changing a route or model, rerun `uv run python -m api.export_openapi` (a test
+   fails until the file matches the code), then `npm run gen:api` in `frontend/`.
+9. **Run the React frontend**: needs Node (the version in [frontend/.nvmrc](frontend/.nvmrc);
+   with nvm, `nvm use` in `frontend/`) and the API from step 8 running. In `frontend/`:
+   `npm ci` once, then `npm run dev` and visit http://localhost:5173 -- Vite passes `/api`
+   requests on to the API on port 8000. `LIVE_FLIGHT_SEARCH=off` in `.env` makes destination
+   views use collected prices only, with no call to Travelpayouts.
 
 ## Tests and lint
 
@@ -63,5 +66,22 @@ the seed CSVs; each test then inserts exactly the flights, hotels and searches i
 and is rolled back afterwards. They need the Postgres server from step 1 running
 (locally the DB tests skip without it; in CI that's a failure).
 
+The React frontend has two more layers of tests, run from `frontend/`:
+
+```
+npm test         # component tests: Vitest + Testing Library, the API answered by MSW
+npx playwright test   # end-to-end: Chrome against Vite + FastAPI + Postgres
+```
+
+The component tests render the whole app in a simulated browser (jsdom) and click
+through it like a user; their API answers are typed by the generated schema, so a
+changed API breaks them at compile time. The end-to-end tests start their own API
+(`uv run python -m tests.e2e_server`) on a separate `vacation_budget_e2e` database
+rebuilt with fixed data ([tests/e2e_data.py](tests/e2e_data.py)), with live flight
+search switched off (`LIVE_FLIGHT_SEARCH=off`), so every run sees the same prices.
+
 CI ([GitHub Actions](.github/workflows/ci.yml)) runs on every push: `uv sync --locked`,
-ruff, the migrations and seed loaders on a fresh Postgres, then the test suite.
+ruff, the migrations and seed loaders on a fresh Postgres, then the test suite. A second
+job checks the frontend: `npm ci`, regenerates `frontend/src/api/schema.d.ts` and fails if
+it differs from the committed one, runs the component tests, then type-checks and builds
+(`npm run build`). A third runs the end-to-end tests on a fresh Postgres.

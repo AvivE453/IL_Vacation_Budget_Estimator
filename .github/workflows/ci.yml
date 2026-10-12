@@ -28,8 +28,6 @@ jobs:
 
     env:
       DB_URL: postgresql://vacation:vacation@localhost:5432/vacation_budget
-      # The app refuses to start without one; the route tests only need it to exist.
-      FLASK_SECRET_KEY: ci-only-not-a-secret
 
     steps:
       - name: Check out the code
@@ -52,3 +50,99 @@ jobs:
 
       - name: Tests
         run: uv run pytest -v
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      # The same Node as locally (.nvmrc); npm ci installs exactly package-lock.json.
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # schema.d.ts is generated from api/openapi.json and committed; regenerate
+      # it and fail if that changes anything, so the types can't drift from the API.
+      - name: API types match the API schema
+        run: |
+          npm run gen:api
+          git diff --exit-code src/api/schema.d.ts
+
+      - name: Component tests
+        run: npm test
+
+      - name: Type check and build
+        run: npm run build
+
+  e2e:
+    # The whole app in a real browser: Vite + FastAPI + Postgres, with the
+    # fixed data from tests/e2e_data.py and live flight search off.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vacation
+          POSTGRES_PASSWORD: vacation
+          POSTGRES_DB: vacation_budget
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vacation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_URL: postgresql://vacation:vacation@localhost:5432/vacation_budget
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Install Python dependencies
+        run: uv sync --locked
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Google Chrome, as locally (playwright.config.ts -> channel).
+      - name: Install Chrome
+        working-directory: frontend
+        run: npx playwright install --with-deps chrome
+
+      - name: End-to-end tests
+        working-directory: frontend
+        run: npx playwright test
+
+      - name: Keep the traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: frontend/test-results/

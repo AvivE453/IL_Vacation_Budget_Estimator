@@ -119,3 +119,11 @@ def test_any_failure_is_none(fake_get, answer):
     fake_get(answer)
 
     assert fetch() is None
+
+
+def test_switched_off_asks_nothing(fake_get, monkeypatch):
+    calls = fake_get(response(200, {"data": [RESULT]}))
+    monkeypatch.setattr(live_flights, "LIVE_FLIGHT_SEARCH", False)
+
+    assert fetch() is None
+    assert calls == []

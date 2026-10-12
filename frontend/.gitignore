@@ -1,0 +1,5 @@
+node_modules/
+dist/
+# Playwright's run output (traces of failed tests)
+test-results/
+playwright-report/

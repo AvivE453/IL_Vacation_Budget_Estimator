@@ -1,6 +1,5 @@
-# JSON API, served alongside the Flask app (app/main.py) until React replaces
-# the Jinja pages. Both use the same SQL (app/queries.py) and connection pool
-# (app/db.py).
+# JSON API for the React frontend (frontend/). The SQL lives in app/queries.py
+# and the connection pool in app/db.py.
 #
 # Run with: uv run uvicorn api.main:app --reload --port 8000
 # Interactive docs at http://127.0.0.1:8000/docs, schema at /openapi.json.

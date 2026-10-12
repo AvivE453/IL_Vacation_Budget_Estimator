@@ -15,7 +15,7 @@ import logging
 import requests
 
 from etl.collectors.flights_collector import PRICES_URL, RESULTS_PER_CALL, price_seen_on
-from etl.common.config import TRAVELPAYOUTS_MARKER, TRAVELPAYOUTS_TOKEN
+from etl.common.config import LIVE_FLIGHT_SEARCH, TRAVELPAYOUTS_MARKER, TRAVELPAYOUTS_TOKEN
 
 LIVE_TIMEOUT_SECONDS = 5
 # The API returns each option's search link as a path on this site.
@@ -25,8 +25,11 @@ logger = logging.getLogger(__name__)
 
 
 # The options for exactly these dates, cheapest first, or None if the call
-# failed. An empty list means the API answered but had nothing cached.
+# failed (or live search is switched off). An empty list means the API
+# answered but had nothing cached.
 def fetch_live_flight_options(origin_iata, destination_iata, depart_date, return_date):
+    if not LIVE_FLIGHT_SEARCH:
+        return None
     try:
         response = requests.get(
             PRICES_URL,

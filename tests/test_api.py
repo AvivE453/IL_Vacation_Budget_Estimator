@@ -112,7 +112,7 @@ def search_body(**overrides):
 
 def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
     add_exchange_rate(cur, "ILS", 0.25)
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="IZ")
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="IZ", price_seen_on=datetime.date(2030, 5, 20))
     add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
 
     response = client.post("/api/v1/estimates", json=search_body())
@@ -137,10 +137,26 @@ def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
             "flight_total_amount": 1200.0,  # $300 at 0.25 USD per ILS
             "hotel_total_amount": 1680.0,  # 7 * $60
             "total_estimate_amount": 2880.0,
+            "flight_seen_on": "2030-05-20",
+            "hotel_price_age_days": 0,
         }
     ]
     # Luxury: 300 + 7 * 250 = $2050 = 8200 ILS, over the 5000 ILS budget.
     assert body["tiers"]["luxury"] == {"exact_dates_only": False, "has_missing_data": False, "destinations": []}
+
+
+def test_estimate_shows_how_fresh_each_price_is(client, cur):
+    # Collected before price_seen_on was recorded: the day we collected it stands in.
+    collected = datetime.datetime(2030, 5, 10, 12, tzinfo=datetime.UTC)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, observed_at=collected)
+    add_hotel(cur, "barcelona", avg_usd=100)
+    cur.execute("UPDATE hotel_prices SET loaded_at = now() - interval '12 days'")
+
+    response = client.post("/api/v1/estimates", json=search_body(budget_currency="USD"))
+
+    barcelona = response.json()["tiers"]["average"]["destinations"][0]
+    assert barcelona["flight_seen_on"] == "2030-05-10"
+    assert barcelona["hotel_price_age_days"] == 12
 
 
 def test_estimate_saves_only_the_requested_tier_to_this_browsers_history(client, cur):
@@ -202,6 +218,67 @@ def test_missing_field_is_422(client):
 
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "depart_date"]
+
+
+# --- statement counts (the N+1 fixes of ROADMAP 0.6) -------------------------
+
+
+class CountingCursor:
+    def __init__(self, cur):
+        self._cur = cur
+        self.executed = 0
+
+    def execute(self, *args, **kwargs):
+        self.executed += 1
+        return self._cur.execute(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
+
+
+@pytest.fixture()
+def counting(client, cur):
+    counting_cursor = CountingCursor(cur)
+    app.dependency_overrides[db_cursor] = lambda: counting_cursor
+    return counting_cursor
+
+
+def statements_for(counting, request):
+    before = counting.executed
+    response = request()
+    assert response.status_code == 200
+    return counting.executed - before
+
+
+# One exchange-rate lookup per request and one INSERT for all saved results -
+# not one of each per destination.
+def test_estimate_statement_count_does_not_grow_with_destinations(client, cur, counting):
+    add_exchange_rate(cur, "ILS", 0.27)
+
+    def search():
+        return client.post("/api/v1/estimates", json=search_body(budget_amount=100_000))
+
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100)
+    with_one = statements_for(counting, search)
+
+    for iata, city in (("MAD", "madrid"), ("FCO", "rome")):
+        add_flight(cur, iata, DEPART, RETURN, price_usd=300)
+        add_hotel(cur, city, avg_usd=100)
+    with_three = statements_for(counting, search)
+
+    assert with_one == with_three
+
+
+def test_saved_search_statement_count_does_not_grow_with_results(client, cur, counting):
+    add_exchange_rate(cur, "ILS", 0.27)
+    one = add_saved_search(cur, "browser-a", ["BCN"], budget_currency="ILS")
+    three = add_saved_search(cur, "browser-a", ["BCN", "MAD", "FCO"], budget_currency="ILS")
+    as_browser(client, "browser-a")
+
+    assert statements_for(counting, lambda: client.get(f"/api/v1/searches/{one}")) == statements_for(
+        counting, lambda: client.get(f"/api/v1/searches/{three}")
+    )
 
 
 # --- GET /api/v1/searches ----------------------------------------------------
@@ -431,6 +508,56 @@ def test_invalid_trip_query_is_422(client, cur, params, field):
     assert response.status_code == 422
     if field:
         assert [e["loc"] for e in response.json()["detail"]] == [["query", field]]
+
+
+# --- GET /api/v1/destinations/{id}/date-grid ---------------------------------
+
+
+def date_grid(client, cur, **params):
+    query = {"depart_date": DEPART.isoformat(), "return_date": RETURN.isoformat(), "currency": "USD", **params}
+    return client.get(f"/api/v1/destinations/{barcelona_id(cur)}/date-grid", params=query)
+
+
+def days(n):
+    return datetime.timedelta(days=n)
+
+
+def test_date_grid_has_the_cheapest_flight_per_date_pair_with_tier_totals(client, cur):
+    add_exchange_rate(cur, "ILS", 0.25)
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="IZ")
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=250, airline_code="W4")  # same dates, cheaper
+    add_flight(cur, "BCN", DEPART - days(3), RETURN + days(3), price_usd=400)  # the grid's corner
+    add_flight(cur, "BCN", DEPART - days(4), RETURN, price_usd=100)  # a day outside the grid
+    add_flight(cur, "MAD", DEPART, RETURN, price_usd=50)  # another destination
+
+    body = date_grid(client, cur, currency="ILS").json()
+
+    assert (body["currency"], body["days"]) == ("ILS", 3)
+    assert body["cells"] == [
+        {
+            "depart_date": "2030-05-29",
+            "return_date": "2030-06-11",
+            "nights": 13,
+            "flight_amount": 1600.0,  # $400 at 0.25 USD per ILS
+            "total_amount": {"budget": 4720.0, "average": 6800.0, "luxury": None},  # 400 + 13 * 60 / 100
+        },
+        {
+            "depart_date": "2030-06-01",
+            "return_date": "2030-06-08",
+            "nights": 7,
+            "flight_amount": 1000.0,
+            "total_amount": {"budget": 2680.0, "average": 3800.0, "luxury": None},  # 250 + 7 * 60 / 100
+        },
+    ]
+
+
+def test_date_grid_without_flights_or_destination(client, cur):
+    assert date_grid(client, cur).json()["cells"] == []
+
+    query = {"depart_date": DEPART.isoformat(), "return_date": RETURN.isoformat()}
+    assert client.get("/api/v1/destinations/999999/date-grid", params=query).status_code == 404
+    assert date_grid(client, cur, origin_iata="XYZ").status_code == 422
 
 
 # --- storing live results (ROADMAP 2.5.1) ------------------------------------

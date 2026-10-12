@@ -11,6 +11,10 @@ MAX_DATE_DRIFT_DAYS = 4
 # likely left it - it's no longer a price anyone can get.
 FRESHNESS_DAYS = 7
 
+# A destination's date grid spans this many days either side of the requested
+# departure and return dates: 7 x 7 date pairs.
+DATE_GRID_DAYS = 3
+
 # The flights a trip can use, shared by estimate_all_destinations and
 # get_collected_flight_options so the ranking and the destination view pick
 # the same flight. For each destination, within MAX_DATE_DRIFT_DAYS of the
@@ -150,7 +154,7 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
                 destination_id, price_amount_usd AS flight_total_usd,
                 depart_date AS flight_out_date, return_date AS flight_return_date,
                 depart_time AS flight_out_time, return_time AS flight_return_time,
-                airline_code
+                airline_code, seen_on AS flight_seen_on
             FROM fresh_flights
             -- The nearest dates; among their flights, the cheapest.
             ORDER BY destination_id, date_drift, price_amount_usd,
@@ -167,7 +171,8 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
                     WHEN 'budget' THEN hp.avg_price_budget_tier_usd
                     WHEN 'luxury' THEN hp.avg_price_luxury_tier_usd
                     ELSE hp.avg_price_per_night_usd
-                END AS hotel_price_per_night_usd
+                END AS hotel_price_per_night_usd,
+                CURRENT_DATE - hp.loaded_at::date AS hotel_price_age_days
             FROM hotel_prices AS hp
             CROSS JOIN tiers AS t
         ),
@@ -183,6 +188,8 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
                 (lf.flight_return_date - lf.flight_out_date) AS matched_nights,
                 lf.airline_code,
                 al.airline_name,
+                lf.flight_seen_on,
+                hpk.hotel_price_age_days,
                 hpk.hotel_price_per_night_usd,
                 hpk.hotel_price_per_night_usd * (lf.flight_return_date - lf.flight_out_date)
                     AS hotel_total_usd,
@@ -256,7 +263,7 @@ def insert_search_query(
 
 
 # Logs one search_results row per destination estimate - cost rank,
-# within-budget flag, and airline, all frozen for the /history/<id> saved ranking.
+# within-budget flag, and airline, all frozen for the saved ranking (GET /api/v1/searches/{id}).
 def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
     ranked = sorted(
         (e for e in estimates if e["total_estimate_usd"] is not None),
@@ -410,6 +417,30 @@ def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, 
         ORDER BY df.price_amount_usd, df.price_seen_on DESC NULLS LAST, df.observed_at DESC
         """,
         {**_fresh_flights_params(origin_iata, depart_date, return_date), "destination_id": destination_id},
+    )
+    return cur.fetchall()
+
+
+# The cheapest flight for every date pair within `days` of the requested
+# dates, for one destination, by the same freshness rules as the ranking - so
+# the cell at the requested dates is the flight an exact-match estimate picks.
+# Only pairs with a flight on file: an absent pair is missing data.
+def get_date_grid(cur, origin_iata, destination_id, depart_date, return_date, days=DATE_GRID_DAYS):
+    cur.execute(
+        f"""
+        WITH {_FRESH_FLIGHTS_CTES}
+        SELECT depart_date, return_date, MIN(price_amount_usd) AS flight_price_usd
+        FROM fresh_flights
+        WHERE destination_id = %(destination_id)s
+        GROUP BY depart_date, return_date
+        ORDER BY depart_date, return_date
+        """,
+        {
+            **_fresh_flights_params(origin_iata, depart_date, return_date),
+            # The grid's span replaces the ranking's drift window.
+            "max_drift": days,
+            "destination_id": destination_id,
+        },
     )
     return cur.fetchall()
 
