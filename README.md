@@ -46,9 +46,13 @@ Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependenc
 8. **Run the app**: `uv run flask --app app.main run --debug`, then visit http://127.0.0.1:5000
 9. **Run the JSON API** (alongside the app, until React replaces its pages): `uv run uvicorn api.main:app --reload --port 8000`,
    then see the interactive docs at http://127.0.0.1:8000/docs. Its OpenAPI schema is also
-   saved in [api/openapi.json](api/openapi.json), which the React app's TypeScript types will be
+   saved in [api/openapi.json](api/openapi.json), which the React app's TypeScript types are
    generated from; after changing a route or model, rerun `uv run python -m api.export_openapi`
-   (a test fails until the file matches the code).
+   (a test fails until the file matches the code), then `npm run gen:api` in `frontend/`.
+10. **Run the React frontend** (in progress, replacing the Flask pages): needs Node (the
+    version in [frontend/.nvmrc](frontend/.nvmrc); with nvm, `nvm use` in `frontend/`) and the
+    API from step 9 running. In `frontend/`: `npm ci` once, then `npm run dev` and visit
+    http://localhost:5173 -- Vite passes `/api` requests on to the API on port 8000.
 
 ## Tests and lint
 
@@ -64,4 +68,6 @@ and is rolled back afterwards. They need the Postgres server from step 1 running
 (locally the DB tests skip without it; in CI that's a failure).
 
 CI ([GitHub Actions](.github/workflows/ci.yml)) runs on every push: `uv sync --locked`,
-ruff, the migrations and seed loaders on a fresh Postgres, then the test suite.
+ruff, the migrations and seed loaders on a fresh Postgres, then the test suite. A second
+job checks the frontend: `npm ci`, regenerates `frontend/src/api/schema.d.ts` and fails if
+it differs from the committed one, then type-checks and builds (`npm run build`).
