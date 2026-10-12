@@ -220,6 +220,67 @@ def test_missing_field_is_422(client):
     assert response.json()["detail"][0]["loc"] == ["body", "depart_date"]
 
 
+# --- statement counts (the N+1 fixes of ROADMAP 0.6) -------------------------
+
+
+class CountingCursor:
+    def __init__(self, cur):
+        self._cur = cur
+        self.executed = 0
+
+    def execute(self, *args, **kwargs):
+        self.executed += 1
+        return self._cur.execute(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
+
+
+@pytest.fixture()
+def counting(client, cur):
+    counting_cursor = CountingCursor(cur)
+    app.dependency_overrides[db_cursor] = lambda: counting_cursor
+    return counting_cursor
+
+
+def statements_for(counting, request):
+    before = counting.executed
+    response = request()
+    assert response.status_code == 200
+    return counting.executed - before
+
+
+# One exchange-rate lookup per request and one INSERT for all saved results -
+# not one of each per destination.
+def test_estimate_statement_count_does_not_grow_with_destinations(client, cur, counting):
+    add_exchange_rate(cur, "ILS", 0.27)
+
+    def search():
+        return client.post("/api/v1/estimates", json=search_body(budget_amount=100_000))
+
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100)
+    with_one = statements_for(counting, search)
+
+    for iata, city in (("MAD", "madrid"), ("FCO", "rome")):
+        add_flight(cur, iata, DEPART, RETURN, price_usd=300)
+        add_hotel(cur, city, avg_usd=100)
+    with_three = statements_for(counting, search)
+
+    assert with_one == with_three
+
+
+def test_saved_search_statement_count_does_not_grow_with_results(client, cur, counting):
+    add_exchange_rate(cur, "ILS", 0.27)
+    one = add_saved_search(cur, "browser-a", ["BCN"], budget_currency="ILS")
+    three = add_saved_search(cur, "browser-a", ["BCN", "MAD", "FCO"], budget_currency="ILS")
+    as_browser(client, "browser-a")
+
+    assert statements_for(counting, lambda: client.get(f"/api/v1/searches/{one}")) == statements_for(
+        counting, lambda: client.get(f"/api/v1/searches/{three}")
+    )
+
+
 # --- GET /api/v1/searches ----------------------------------------------------
 
 

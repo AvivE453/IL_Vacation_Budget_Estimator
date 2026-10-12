@@ -6,8 +6,8 @@ import EstimateResults from "../components/EstimateResults";
 import SearchForm from "../components/SearchForm";
 import { destinationUrl } from "../links";
 
-// The form and its results on one page: the results replace Flask's separate
-// results page, and the form stays above them for the next search.
+// The form and its results on one page, so the form stays above them for the
+// next search.
 export default function SearchPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();

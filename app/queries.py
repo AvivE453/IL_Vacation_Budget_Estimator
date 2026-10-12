@@ -263,7 +263,7 @@ def insert_search_query(
 
 
 # Logs one search_results row per destination estimate - cost rank,
-# within-budget flag, and airline, all frozen for the /history/<id> saved ranking.
+# within-budget flag, and airline, all frozen for the saved ranking (GET /api/v1/searches/{id}).
 def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
     ranked = sorted(
         (e for e in estimates if e["total_estimate_usd"] is not None),

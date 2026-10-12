@@ -14,4 +14,3 @@ TRAVELPAYOUTS_MARKER = os.environ.get("TRAVELPAYOUTS_MARKER", "")
 # Travelpayouts - for the end-to-end tests (fixed answers) and offline work.
 LIVE_FLIGHT_SEARCH = os.environ.get("LIVE_FLIGHT_SEARCH", "on") != "off"
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
-FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "")

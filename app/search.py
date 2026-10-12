@@ -1,4 +1,4 @@
-# One budget search, shared by the Flask results page and the JSON API:
+# One budget search (POST /api/v1/estimates):
 # the budget converted to USD, every hotel tier estimated, the search logged
 # for /history, and all amounts converted to the currency the budget was
 # entered in.

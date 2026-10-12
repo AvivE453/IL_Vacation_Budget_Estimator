@@ -24,10 +24,9 @@ SESSION_COOKIE = "session_id"
 SESSION_MAX_AGE = datetime.timedelta(days=30)
 
 
-# Anonymous per-browser id scoping /history, like app/session_id.py for the
-# Flask pages. The cookie holds only a random UUID - nothing to tamper with,
-# and another browser's id can't be guessed - so unlike Flask's session it
-# isn't signed. Re-set on every response, so the 30 days count from the last visit.
+# Anonymous per-browser id scoping /history - no login, just a cookie. It
+# holds only a random UUID - nothing to tamper with, and another browser's id
+# can't be guessed - so it isn't signed. Re-set on every response, so the 30 days count from the last visit.
 def session_id(request: Request, response: Response) -> str:
     value = request.cookies.get(SESSION_COOKIE) or str(uuid.uuid4())
     response.set_cookie(

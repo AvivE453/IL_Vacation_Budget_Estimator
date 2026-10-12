@@ -57,7 +57,7 @@ def add_exchange_rate(cur, currency_code, usd_per_unit):
     )
 
 
-# A past /estimate search as /history shows it: one search_queries row plus
+# A past estimate as the history shows it: one search_queries row plus
 # one saved result per destination.
 def add_saved_search(cur, session_id, destination_iatas=("BCN",), budget_currency="USD"):
     cur.execute(

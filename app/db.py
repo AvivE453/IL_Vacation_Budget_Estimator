@@ -6,7 +6,7 @@ import psycopg2.pool
 
 from etl.common.config import DB_URL
 
-# Shared by the Flask app and the FastAPI app (each process gets its own pool).
+# One pool per API process.
 # MIN_CONNECTIONS is also how many idle connections psycopg2 keeps: one
 # returned while that many are already idle is closed, not pooled.
 MIN_CONNECTIONS = 1
