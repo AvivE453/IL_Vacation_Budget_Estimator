@@ -220,10 +220,10 @@ export interface components {
             nights: number;
             /**
              * Flight Amount
-             * @description The cheapest round trip on file for these exact dates
+             * @description One traveler's cheapest round trip on file for these exact dates
              */
             flight_amount: number;
-            /** @description Flight + hotel for these nights, per hotel tier; null when the tier has no hotel price */
+            /** @description Every traveler's flight + every room for these nights, per hotel tier; null when the tier has no hotel price */
             total_amount: components["schemas"]["TierTotals"];
         };
         /** Destination */
@@ -309,11 +309,25 @@ export interface components {
              * @description Nights of the matched flight, which the hotel is priced for - may differ from the request
              */
             matched_nights: number;
-            /** Flight Total Amount */
+            /**
+             * Flight Price Amount
+             * @description One traveler's round trip
+             */
+            flight_price_amount: number;
+            /**
+             * Flight Total Amount
+             * @description Every traveler's round trip
+             */
             flight_total_amount: number;
-            /** Hotel Total Amount */
+            /**
+             * Hotel Total Amount
+             * @description Every room, for matched_nights
+             */
             hotel_total_amount: number;
-            /** Total Estimate Amount */
+            /**
+             * Total Estimate Amount
+             * @description Flights + hotel, for the whole party
+             */
             total_estimate_amount: number;
             /**
              * Flight Seen On
@@ -361,6 +375,18 @@ export interface components {
              * @enum {string}
              */
             hotel_tier: "budget" | "average" | "luxury";
+            /**
+             * Travelers
+             * @description Everyone flying; each needs a seat
+             * @default 1
+             */
+            travelers: number;
+            /**
+             * Rooms
+             * @description Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)
+             * @default 1
+             */
+            rooms: number;
         };
         /** EstimateResponse */
         EstimateResponse: {
@@ -415,7 +441,7 @@ export interface components {
             return_minutes: number | null;
             /**
              * Price Amount
-             * @description Round trip, without checked baggage
+             * @description One traveler's round trip, without checked baggage
              */
             price_amount: number;
             /**
@@ -449,6 +475,8 @@ export interface components {
              * @description Nights of the flight found, which may differ from the request
              */
             nights: number;
+            /** Rooms */
+            rooms: number;
             /**
              * Price Age Days
              * @description Days since the hotel prices were collected
@@ -461,9 +489,15 @@ export interface components {
         };
         /** HotelTierPrice */
         HotelTierPrice: {
-            /** Per Night Amount */
+            /**
+             * Per Night Amount
+             * @description One room, one night
+             */
             per_night_amount: number;
-            /** Total Amount */
+            /**
+             * Total Amount
+             * @description Every room, every night
+             */
             total_amount: number;
         };
         /** Origin */
@@ -522,6 +556,10 @@ export interface components {
              * @enum {string}
              */
             hotel_tier: "budget" | "average" | "luxury";
+            /** Travelers */
+            travelers: number;
+            /** Rooms */
+            rooms: number;
             /**
              * Created At
              * Format: date-time
@@ -568,6 +606,10 @@ export interface components {
              * @enum {string}
              */
             hotel_tier: "budget" | "average" | "luxury";
+            /** Travelers */
+            travelers: number;
+            /** Rooms */
+            rooms: number;
             /**
              * Created At
              * Format: date-time
@@ -898,6 +940,10 @@ export interface operations {
                 return_date: string;
                 origin_iata?: string;
                 currency?: "ILS" | "USD" | "EUR";
+                /** @description Everyone flying; each needs a seat */
+                travelers?: number;
+                /** @description Hotel rooms; a room's price is for two adults (SerpApi's default occupancy) */
+                rooms?: number;
             };
             header?: never;
             path: {
@@ -952,6 +998,10 @@ export interface operations {
                 return_date: string;
                 origin_iata?: string;
                 currency?: "ILS" | "USD" | "EUR";
+                /** @description Everyone flying; each needs a seat */
+                travelers?: number;
+                /** @description Hotel rooms; a room's price is for two adults (SerpApi's default occupancy) */
+                rooms?: number;
             };
             header?: never;
             path: {

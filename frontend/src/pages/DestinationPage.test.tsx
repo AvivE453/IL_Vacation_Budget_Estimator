@@ -66,6 +66,19 @@ test("shows every live option with the hotel, the budget count and booking links
   );
 });
 
+test("for a couple, flights are per traveler and the total is for both", async () => {
+  answer(trip());
+  renderApp(TRIP_URL.replace("budget=7500", "budget=8000") + "&travelers=2&rooms=1");
+
+  await screen.findByRole("heading", { name: "פריז, צרפת" });
+  // 2 x 745 + 6300 (one room) = 7790.
+  expect(screen.getByText("7,790 ₪")).toBeVisible();
+  expect(screen.getByText("3,895 ₪ לאדם")).toBeVisible();
+  // 2 x 745 + 6300 fits 8000; 2 x 1460 + 6300 doesn't.
+  expect(screen.getByText(/אפשרויות נכנסות בתקציב שלך/)).toHaveTextContent("1 מתוך 2");
+  expect(cellTexts(bodyRows(flightsTable())[0])[5]).toBe("1,460 ₪"); // the list stays per traveler
+});
+
 test("direct-only hides flights with a stop", async () => {
   answer(trip());
   const { user } = renderApp(TRIP_URL);

@@ -116,8 +116,40 @@ test("an estimate sends the form as typed values and ranks the results", async (
       budget_amount: 8000, // a number, not the input's "8000"
       budget_currency: "USD",
       hotel_tier: "luxury",
+      travelers: 2, // the default: most vacations are for two
+      rooms: 1,
     },
   ]);
+});
+
+test("the party buttons and a typed number of travelers set the rooms", async () => {
+  const sent = answerEstimate(estimateResponse());
+  const { user } = renderApp("/");
+  await fillDatesAndBudget(user);
+  expect(screen.getByRole("button", { name: "זוג", pressed: true })).toBeVisible(); // the default
+
+  await user.click(screen.getByRole("button", { name: "שני זוגות" }));
+  expect([screen.getByLabelText("נוסעים"), screen.getByLabelText("חדרים")].map((i) => (i as HTMLInputElement).value)).toEqual(["4", "2"]);
+
+  // Typed by hand: up to four share a room, so six need two.
+  await user.clear(screen.getByLabelText("נוסעים"));
+  await user.type(screen.getByLabelText("נוסעים"), "6");
+  expect(screen.getByLabelText("חדרים")).toHaveValue(2);
+
+  await search(user);
+  await screen.findByRole("table");
+  expect(sent[0]).toMatchObject({ travelers: 6, rooms: 2 });
+});
+
+test("more people than a room for two says the hotel price may be low", async () => {
+  answerEstimate(estimateResponse());
+  const { user } = renderApp("/");
+  await fillDatesAndBudget(user);
+
+  await user.click(screen.getByRole("button", { name: "משפחה 2+2" }));
+  await search(user);
+
+  expect(await screen.findByText(/מחיר המלון הוא לחדר לשני מבוגרים/)).toBeVisible();
 });
 
 test("the ranking shows the totals, with how fresh each price is", async () => {
@@ -129,7 +161,12 @@ test("the ranking shows the totals, with how fresh each price is", async () => {
   const table = await screen.findByRole("table");
   expect(screen.getByRole("heading", { name: "1 יעדים בתקציב שלך" })).toBeVisible();
   expect(bodyRows(table).map(cellTexts)).toEqual([
-    ["פריז", "1,400 ₪ Air France נראה לפני 2 ימים", "2,100 ₪ מחירים לפני 3 ימים", "3,500 ₪"],
+    [
+      "פריז",
+      "1,400 ₪ (700 ₪ לאדם) Air France נראה לפני 2 ימים",
+      "2,100 ₪ מחירים לפני 3 ימים",
+      "3,500 ₪ 1,750 ₪ לאדם",
+    ],
   ]);
   expect(screen.getByRole("link", { name: "לדירוג השמור של החיפוש" })).toHaveAttribute("href", "/history/41");
 });
@@ -142,7 +179,7 @@ test("switching hotel tier is instant, with no new request", async () => {
   await screen.findByRole("table");
 
   await user.click(screen.getByRole("button", { name: "מלון חסכוני" }));
-  expect(cellTexts(bodyRows(screen.getByRole("table"))[0]).at(-1)).toBe("2,600 ₪");
+  expect(cellTexts(bodyRows(screen.getByRole("table"))[0]).at(-1)).toBe("2,600 ₪ 1,300 ₪ לאדם");
 
   await user.click(screen.getByRole("button", { name: "מלון יוקרתי" }));
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -262,6 +299,8 @@ test("a specific destination opens its view instead of ranking every one", async
     return_date: RETURN,
     origin_iata: "TLV",
     currency: "ILS",
+    travelers: "2",
+    rooms: "1",
   });
   expect(sent).toEqual([]); // a destination view isn't saved to history
 });

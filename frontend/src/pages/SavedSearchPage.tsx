@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
 import { api, ApiError, unwrap } from "../api/client";
-import { cityName, formatDate, money, TIER_NAMES } from "../format";
+import { cityName, formatDate, money, rooms, TIER_NAMES, travelers } from "../format";
 
 export default function SavedSearchPage() {
   // The :searchId part of /history/:searchId - always a string from the URL.
@@ -39,7 +39,8 @@ export default function SavedSearchPage() {
         {data.origin_iata}, {formatDate(data.depart_date)} – {formatDate(data.return_date)}
       </h1>
       <p className="note">
-        תקציב {money(data.budget_amount, data.budget_currency)}, מלון {TIER_NAMES[data.hotel_tier]}
+        {travelers(data.travelers)} ב{rooms(data.rooms)}, תקציב {money(data.budget_amount, data.budget_currency)}, מלון{" "}
+        {TIER_NAMES[data.hotel_tier]}
       </p>
       {data.exact_dates_only !== null && (
         <p className="note">
@@ -60,7 +61,7 @@ export default function SavedSearchPage() {
                 <th>יעד</th>
                 <th>חברה</th>
                 <th>מלון</th>
-                <th>סך הכול</th>
+                <th>סך הכול, לכל הנוסעים</th>
                 <th>בתקציב?</th>
               </tr>
             </thead>

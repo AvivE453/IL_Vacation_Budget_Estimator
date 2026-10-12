@@ -9,6 +9,7 @@ import {
   cityName,
   clock,
   countryName,
+  crowdedRoomNote,
   daysSince,
   duration,
   formatDate,
@@ -17,7 +18,9 @@ import {
   nights,
   nightsBetween,
   TIER_NAMES,
+  rooms,
   TIERS,
+  travelers,
 } from "../format";
 
 type Currency = Schemas["EstimateRequest"]["budget_currency"] & string;
@@ -36,6 +39,8 @@ export default function DestinationPage() {
     return_date: searchParams.get("return_date") ?? "",
     origin_iata: searchParams.get("origin_iata") ?? "TLV",
     currency: (searchParams.get("currency") ?? "ILS") as Currency,
+    travelers: Number(searchParams.get("travelers") ?? 1),
+    rooms: Number(searchParams.get("rooms") ?? 1),
   };
   const tier = (searchParams.get("tier") ?? "average") as HotelTier;
   const budgetParam = searchParams.get("budget");
@@ -93,7 +98,10 @@ export default function DestinationPage() {
   const flights = t.flights.filter(
     (f) => !directOnly || (f.outbound_stops === 0 && (f.return_stops === 0 || f.return_stops === null)),
   );
-  const withinBudget = canCompareBudget ? t.flights.filter((f) => f.price_amount + hotel.total_amount <= budget) : [];
+  // A flight's price is per traveler; the hotel's total already covers every room.
+  const partyCost = (flightPrice: number) => flightPrice * query.travelers + (hotel?.total_amount ?? 0);
+  const withinBudget = canCompareBudget ? t.flights.filter((f) => partyCost(f.price_amount) <= budget) : [];
+  const roomNote = crowdedRoomNote(query.travelers, query.rooms);
   const requestedNights = nightsBetween(query.depart_date, query.return_date);
   const cheapestFlight = t.flights.length > 0 ? Math.min(...t.flights.map((f) => f.price_amount)) : null;
 
@@ -105,7 +113,8 @@ export default function DestinationPage() {
         </h1>
         <p>
           יציאה מ-{query.origin_iata}, {formatDate(query.depart_date)} – {formatDate(query.return_date)} (
-          {nights(requestedNights)}){budget !== null && `, תקציב ${money(budget, query.currency)}`}
+          {nights(requestedNights)}), {travelers(query.travelers)} ב{rooms(query.rooms)}
+          {budget !== null && `, תקציב ${money(budget, query.currency)}`}
         </p>
       </div>
 
@@ -116,14 +125,19 @@ export default function DestinationPage() {
           <div className="trip-summary">
             <div>
               <div className="note">הטיול הזה, עם הטיסה הזולה ומלון {TIER_NAMES[tier]}</div>
-              <div className="big">{money(cheapestFlight + hotel.total_amount, t.currency)}</div>
+              <div className="big">{money(partyCost(cheapestFlight), t.currency)}</div>
+              {query.travelers > 1 && (
+                <div className="note">{money(partyCost(cheapestFlight) / query.travelers, t.currency)} לאדם</div>
+              )}
             </div>
             <div>
-              <div className="note">טיסה</div>
-              <strong>{money(cheapestFlight, t.currency)}</strong>
+              <div className="note">טיסות, {travelers(query.travelers)}</div>
+              <strong>{money(cheapestFlight * query.travelers, t.currency)}</strong>
             </div>
             <div>
-              <div className="note">מלון, {nights(t.hotel.nights)}</div>
+              <div className="note">
+                מלון, {nights(t.hotel.nights)}, {rooms(t.hotel.rooms)}
+              </div>
               <strong>{money(hotel.total_amount, t.currency)}</strong>{" "}
               <span className="note">({money(hotel.per_night_amount, t.currency)} ללילה)</span>
             </div>
@@ -143,6 +157,7 @@ export default function DestinationPage() {
               : `אין תשובה עדכנית לתאריכים האלה, ולכן מוצגים מחירים שנאספו לתאריכים הקרובים: ${formatDate(t.flight_out_date!)} – ${formatDate(t.flight_return_date!)}.`)}{" "}
           <AgeTag label="מחירי המלון עודכנו" days={t.hotel.price_age_days} staleAfter={HOTEL_STALE_AFTER_DAYS} />
         </p>
+        {roomNote && <p className="note">{roomNote}</p>}
         <div className="segmented" role="group" aria-label="רמת המלון">
           {TIERS.map((option) => (
             <button key={option} type="button" aria-pressed={option === tier} onClick={() => updateSearch({ tier: option })}>
@@ -180,7 +195,7 @@ export default function DestinationPage() {
                   <th>חזרה</th>
                   <th>עצירות (הלוך / חזור)</th>
                   <th>משך (הלוך / חזור)</th>
-                  <th>מחיר</th>
+                  <th>מחיר לאדם</th>
                   <th>המחיר נראה</th>
                   <th></th>
                 </tr>

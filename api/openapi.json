@@ -322,6 +322,34 @@
               "default": "ILS",
               "title": "Currency"
             }
+          },
+          {
+            "name": "travelers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9,
+              "minimum": 1,
+              "description": "Everyone flying; each needs a seat",
+              "default": 1,
+              "title": "Travelers"
+            },
+            "description": "Everyone flying; each needs a seat"
+          },
+          {
+            "name": "rooms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9,
+              "minimum": 1,
+              "description": "Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)",
+              "default": 1,
+              "title": "Rooms"
+            },
+            "description": "Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)"
           }
         ],
         "responses": {
@@ -426,6 +454,34 @@
               "default": "ILS",
               "title": "Currency"
             }
+          },
+          {
+            "name": "travelers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9,
+              "minimum": 1,
+              "description": "Everyone flying; each needs a seat",
+              "default": 1,
+              "title": "Travelers"
+            },
+            "description": "Everyone flying; each needs a seat"
+          },
+          {
+            "name": "rooms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 9,
+              "minimum": 1,
+              "description": "Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)",
+              "default": 1,
+              "title": "Rooms"
+            },
+            "description": "Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)"
           }
         ],
         "responses": {
@@ -573,11 +629,11 @@
           "flight_amount": {
             "type": "number",
             "title": "Flight Amount",
-            "description": "The cheapest round trip on file for these exact dates"
+            "description": "One traveler's cheapest round trip on file for these exact dates"
           },
           "total_amount": {
             "$ref": "#/components/schemas/TierTotals",
-            "description": "Flight + hotel for these nights, per hotel tier; null when the tier has no hotel price"
+            "description": "Every traveler's flight + every room for these nights, per hotel tier; null when the tier has no hotel price"
           }
         },
         "type": "object",
@@ -779,17 +835,25 @@
             "title": "Matched Nights",
             "description": "Nights of the matched flight, which the hotel is priced for - may differ from the request"
           },
+          "flight_price_amount": {
+            "type": "number",
+            "title": "Flight Price Amount",
+            "description": "One traveler's round trip"
+          },
           "flight_total_amount": {
             "type": "number",
-            "title": "Flight Total Amount"
+            "title": "Flight Total Amount",
+            "description": "Every traveler's round trip"
           },
           "hotel_total_amount": {
             "type": "number",
-            "title": "Hotel Total Amount"
+            "title": "Hotel Total Amount",
+            "description": "Every room, for matched_nights"
           },
           "total_estimate_amount": {
             "type": "number",
-            "title": "Total Estimate Amount"
+            "title": "Total Estimate Amount",
+            "description": "Flights + hotel, for the whole party"
           },
           "flight_seen_on": {
             "type": "string",
@@ -813,6 +877,7 @@
           "flight_out_date",
           "flight_return_date",
           "matched_nights",
+          "flight_price_amount",
           "flight_total_amount",
           "hotel_total_amount",
           "total_estimate_amount",
@@ -876,6 +941,22 @@
             "title": "Hotel Tier",
             "description": "The tier saved to history; the response always has all three",
             "default": "average"
+          },
+          "travelers": {
+            "type": "integer",
+            "maximum": 9.0,
+            "minimum": 1.0,
+            "title": "Travelers",
+            "description": "Everyone flying; each needs a seat",
+            "default": 1
+          },
+          "rooms": {
+            "type": "integer",
+            "maximum": 9.0,
+            "minimum": 1.0,
+            "title": "Rooms",
+            "description": "Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)",
+            "default": 1
           }
         },
         "type": "object",
@@ -1034,7 +1115,7 @@
           "price_amount": {
             "type": "number",
             "title": "Price Amount",
-            "description": "Round trip, without checked baggage"
+            "description": "One traveler's round trip, without checked baggage"
           },
           "price_seen_on": {
             "anyOf": [
@@ -1113,6 +1194,10 @@
             "title": "Nights",
             "description": "Nights of the flight found, which may differ from the request"
           },
+          "rooms": {
+            "type": "integer",
+            "title": "Rooms"
+          },
           "price_age_days": {
             "anyOf": [
               {
@@ -1160,6 +1245,7 @@
         "type": "object",
         "required": [
           "nights",
+          "rooms",
           "price_age_days",
           "budget",
           "average",
@@ -1171,11 +1257,13 @@
         "properties": {
           "per_night_amount": {
             "type": "number",
-            "title": "Per Night Amount"
+            "title": "Per Night Amount",
+            "description": "One room, one night"
           },
           "total_amount": {
             "type": "number",
-            "title": "Total Amount"
+            "title": "Total Amount",
+            "description": "Every room, every night"
           }
         },
         "type": "object",
@@ -1315,6 +1403,14 @@
             ],
             "title": "Hotel Tier"
           },
+          "travelers": {
+            "type": "integer",
+            "title": "Travelers"
+          },
+          "rooms": {
+            "type": "integer",
+            "title": "Rooms"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -1355,6 +1451,8 @@
           "budget_amount",
           "budget_currency",
           "hotel_tier",
+          "travelers",
+          "rooms",
           "created_at",
           "exact_dates_only",
           "currency",
@@ -1399,6 +1497,14 @@
             ],
             "title": "Hotel Tier"
           },
+          "travelers": {
+            "type": "integer",
+            "title": "Travelers"
+          },
+          "rooms": {
+            "type": "integer",
+            "title": "Rooms"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -1414,6 +1520,8 @@
           "budget_amount",
           "budget_currency",
           "hotel_tier",
+          "travelers",
+          "rooms",
           "created_at"
         ],
         "title": "SearchSummary"

@@ -98,3 +98,19 @@ export function cityName(place: { city_name: string; city_name_he?: string | nul
 export function countryName(place: { country_name: string; country_name_he?: string | null }): string {
   return place.country_name_he ?? place.country_name;
 }
+
+export function travelers(count: number): string {
+  return count === 1 ? "נוסע אחד" : `${count} נוסעים`;
+}
+
+export function rooms(count: number): string {
+  return count === 1 ? "חדר אחד" : `${count} חדרים`;
+}
+
+// A room's price is for two adults (SerpApi's default occupancy): say so
+// when more people share a room, since an extra bed may cost more.
+export function crowdedRoomNote(travelerCount: number, roomCount: number): string | null {
+  return travelerCount > 2 * roomCount
+    ? "מחיר המלון הוא לחדר לשני מבוגרים. בחדר עם יותר אנשים, מיטה נוספת עשויה לעלות יותר."
+    : null;
+}

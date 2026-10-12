@@ -524,3 +524,15 @@ tbody tr:hover {
     width: 100%;
   }
 }
+
+.party-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.party-row .field {
+  width: 7rem;
+}

@@ -1,7 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
 // The data behind these numbers is tests/e2e_data.py: ILS at 0.25 USD,
-// Barcelona $300 + 7 nights x $100, Rome $250 + 7 nights x $120.
+// Barcelona $300 a seat + $100 a room-night, Rome $250 + $120. The form's
+// default party is a couple in one room: 2 seats + 7 nights.
 const DEPART = "2030-06-01";
 const RETURN = "2030-06-08";
 
@@ -18,11 +19,11 @@ test("an estimate is ranked, saved, and found again in the history", async ({ pa
 
   const rows = page.getByRole("table").getByRole("row");
   await expect(rows.nth(1)).toContainText("ברצלונה");
-  await expect(rows.nth(1)).toContainText("4,000 ₪");
+  await expect(rows.nth(1)).toContainText("5,200 ₪"); // 2 x 300 + 7 x 100 = $1300
   await expect(rows.nth(2)).toContainText("רומא");
-  await expect(rows.nth(2)).toContainText("4,360 ₪");
+  await expect(rows.nth(2)).toContainText("5,360 ₪"); // 2 x 250 + 7 x 120 = $1340
 
-  // Luxury: Barcelona 300 + 7 x 250 = $2050 = 8200 ILS, over the budget.
+  // Luxury: Barcelona 2 x 300 + 7 x 250 = $2350 = 9400 ILS, over the budget.
   await page.getByRole("button", { name: "מלון יוקרתי" }).click();
   await expect(page.getByText(/אין יעדים עם מחיר טיסה ומלון בתקציב שלך/)).toBeVisible();
 
@@ -43,8 +44,9 @@ test("a destination's view falls back to collected data and its date grid picks 
   await expect(page.getByRole("heading", { name: "ברצלונה, ספרד" })).toBeVisible();
   // Live search is off in these tests, so the view uses the collected price.
   await expect(page.getByText(/אין כרגע תשובה עדכנית, ולכן מוצגים מחירים שנאספו/)).toBeVisible();
-  // The summary: $300 + 7 x $100 = $1000 = 4000 ILS.
-  await expect(page.getByText("4,000 ₪", { exact: true })).toBeVisible();
+  // The summary for the couple: 2 x $300 + 7 x $100 = $1300 = 5200 ILS.
+  await expect(page.getByText("5,200 ₪", { exact: true })).toBeVisible();
+  await expect(page.getByText("2,600 ₪ לאדם")).toBeVisible();
   await expect(page.getByText(/1 מתוך 1/)).toBeVisible();
 
   await expect(page.getByText(/יש לנו מחירים ל-4 מתוך 49 צירופי תאריכים/)).toBeVisible();

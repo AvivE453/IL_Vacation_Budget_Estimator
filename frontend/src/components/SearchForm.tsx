@@ -8,6 +8,7 @@ import {
   type HotelTier,
   nights,
   nightsBetween,
+  rooms as roomsLabel,
   TIER_NAMES,
   TIERS,
   todayIso,
@@ -45,6 +46,16 @@ const TRIP_LENGTHS = [
 
 const BUDGET_SLIDER = { ILS: 30_000, USD: 8_000, EUR: 7_500 } satisfies Record<Currency, number>;
 
+const PARTIES = [
+  { label: "לבד", travelers: 1, rooms: 1 },
+  { label: "זוג", travelers: 2, rooms: 1 },
+  { label: "משפחה 2+2", travelers: 4, rooms: 1 },
+  { label: "שני זוגות", travelers: 4, rooms: 2 },
+];
+
+// Rooms for a party typed by hand: a family of up to four shares one.
+const roomsFor = (travelerCount: number) => Math.max(1, Math.ceil(travelerCount / 4));
+
 // What the inputs hold: always strings, converted to the API's types on submit.
 type FormValues = {
   origin_iata: string;
@@ -54,6 +65,8 @@ type FormValues = {
   budget_amount: string;
   budget_currency: Currency;
   hotel_tier: HotelTier;
+  travelers: string;
+  rooms: string;
 };
 
 // Two searches in one form: "where can I go?" ranks every destination for the
@@ -71,6 +84,9 @@ export default function SearchForm({ origins, destinations, isSubmitting, onEsti
       budget_amount: "5000",
       budget_currency: "ILS",
       hotel_tier: "average",
+      // Most vacations are for two.
+      travelers: "2",
+      rooms: "1",
     };
   });
 
@@ -111,6 +127,8 @@ export default function SearchForm({ origins, destinations, isSubmitting, onEsti
       budget_amount: Number(values.budget_amount),
       budget_currency: values.budget_currency,
       hotel_tier: values.hotel_tier,
+      travelers: Number(values.travelers),
+      rooms: Number(values.rooms),
     };
     if (mode === "all") {
       onEstimate(request);
@@ -215,7 +233,54 @@ export default function SearchForm({ origins, destinations, isSubmitting, onEsti
         </div>
 
         <fieldset className="field field-wide">
-          <legend>תקציב לטיול: טיסה ומלון</legend>
+          <legend>מי נוסע?</legend>
+          <div className="chips" role="group" aria-label="מי נוסע">
+            {PARTIES.map((party) => (
+              <button
+                key={party.label}
+                type="button"
+                aria-pressed={values.travelers === String(party.travelers) && values.rooms === String(party.rooms)}
+                onClick={() => update({ travelers: String(party.travelers), rooms: String(party.rooms) })}
+              >
+                {party.label}
+              </button>
+            ))}
+          </div>
+          <div className="party-row">
+            <label className="field">
+              <span>נוסעים</span>
+              <input
+                type="number"
+                name="travelers"
+                min="1"
+                max="9"
+                value={values.travelers}
+                onChange={(event) =>
+                  update({ travelers: event.target.value, rooms: String(roomsFor(Number(event.target.value))) })
+                }
+                required
+              />
+            </label>
+            <label className="field">
+              <span>חדרים</span>
+              <input
+                type="number"
+                name="rooms"
+                min="1"
+                max={values.travelers}
+                value={values.rooms}
+                onChange={handleChange}
+                required
+              />
+            </label>
+            <span className="hint">
+              כל נוסע צריך כרטיס טיסה; {roomsLabel(Number(values.rooms) || 1)} במלון.
+            </span>
+          </div>
+        </fieldset>
+
+        <fieldset className="field field-wide">
+          <legend>תקציב לטיול: טיסה ומלון, לכל הנוסעים</legend>
           <div className="budget-row">
             <input
               type="number"

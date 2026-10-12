@@ -105,6 +105,10 @@ HOTEL_TIERS = ("budget", "average", "luxury")
 # sample was too small to split into tiers - real missing data, not a
 # fallback average.
 #
+# Prices are for the whole party: travelers flights (Travelpayouts prices are
+# per passenger) plus rooms x nights (SerpApi's are for a room for two adults,
+# its default occupancy - the collector doesn't set one).
+#
 # Returns (estimates, has_missing_data): estimates is the viable destinations
 # (flight + hotel both on file, within budget if given); has_missing_data is
 # True only when NOT ONE active destination has both a flight and a hotel on
@@ -114,10 +118,12 @@ HOTEL_TIERS = ("budget", "average", "luxury")
 # "we had candidates, your budget or the exact-date rule excluded them all"
 # (this flag is False). It is NOT "some destination is missing data" - with 45
 # destinations that would be True almost always, and useless to act on.
-def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget_amount_usd=None, hotel_tier="average"):
+def estimate_all_destinations(
+    cur, origin_iata, depart_date, return_date, budget_amount_usd=None, hotel_tier="average", travelers=1, rooms=1,
+):
     if hotel_tier not in HOTEL_TIERS:
         raise ValueError(f"hotel_tier must be one of {HOTEL_TIERS}, got {hotel_tier!r}")
-    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, [hotel_tier])
+    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, [hotel_tier], travelers, rooms)
     return _apply_estimate_rules(rows, depart_date, return_date, budget_amount_usd)
 
 
@@ -125,8 +131,8 @@ def estimate_all_destinations(cur, origin_iata, depart_date, return_date, budget
 # query: {tier: (estimates, has_missing_data)}. Each tier gets its own
 # missing-data, budget and exact-date verdicts, since a tier's price decides
 # all three.
-def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount_usd=None):
-    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, list(HOTEL_TIERS))
+def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount_usd=None, travelers=1, rooms=1):
+    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, list(HOTEL_TIERS), travelers, rooms)
     return {
         tier: _apply_estimate_rules(
             [r for r in rows if r["hotel_tier"] == tier], depart_date, return_date, budget_amount_usd
@@ -145,7 +151,7 @@ def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount
 # hotel_data_missing can actually be computed for it. Filtering on those
 # flags (and on budget) happens in Python (_apply_estimate_rules), not in
 # this SQL, precisely so the missing-data rows survive long enough to be counted.
-def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
+def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, travelers, rooms):
     cur.execute(
         f"""
         WITH {_FRESH_FLIGHTS_CTES},
@@ -180,7 +186,8 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
             SELECT
                 d.destination_id, d.city_name, d.city_name_he,
                 t.hotel_tier,
-                lf.flight_total_usd,
+                lf.flight_total_usd AS flight_price_usd,
+                lf.flight_total_usd * %(travelers)s AS flight_total_usd,
                 lf.flight_out_date,
                 lf.flight_return_date,
                 lf.flight_out_time,
@@ -191,10 +198,10 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
                 lf.flight_seen_on,
                 hpk.hotel_price_age_days,
                 hpk.hotel_price_per_night_usd,
-                hpk.hotel_price_per_night_usd * (lf.flight_return_date - lf.flight_out_date)
+                hpk.hotel_price_per_night_usd * (lf.flight_return_date - lf.flight_out_date) * %(rooms)s
                     AS hotel_total_usd,
-                lf.flight_total_usd
-                    + hpk.hotel_price_per_night_usd * (lf.flight_return_date - lf.flight_out_date)
+                lf.flight_total_usd * %(travelers)s
+                    + hpk.hotel_price_per_night_usd * (lf.flight_return_date - lf.flight_out_date) * %(rooms)s
                     AS total_estimate_usd,
                 (lf.flight_total_usd IS NULL) AS flight_data_missing,
                 (hpk.hotel_price_per_night_usd IS NULL) AS hotel_data_missing
@@ -212,7 +219,12 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
         FROM scored
         ORDER BY total_estimate_usd ASC
         """,
-        {**_fresh_flights_params(origin_iata, depart_date, return_date), "hotel_tiers": hotel_tiers},
+        {
+            **_fresh_flights_params(origin_iata, depart_date, return_date),
+            "hotel_tiers": hotel_tiers,
+            "travelers": travelers,
+            "rooms": rooms,
+        },
     )
     return cur.fetchall()
 
@@ -244,19 +256,19 @@ def _apply_estimate_rules(rows, depart_date, return_date, budget_amount_usd):
 # and the /history "saved ranking" link.
 def insert_search_query(
     cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency,
-    hotel_tier="average", exact_dates_only=None,
+    hotel_tier="average", exact_dates_only=None, travelers=1, rooms=1,
 ):
     cur.execute(
         """
         INSERT INTO search_queries
             (session_id, origin_iata, depart_date, return_date,
-             budget_amount, budget_currency, hotel_tier, exact_dates_only)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+             budget_amount, budget_currency, hotel_tier, exact_dates_only, travelers, rooms)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING search_query_id
         """,
         (
             session_id, origin_iata, depart_date, return_date,
-            budget_amount, budget_currency, hotel_tier, exact_dates_only,
+            budget_amount, budget_currency, hotel_tier, exact_dates_only, travelers, rooms,
         ),
     )
     return cur.fetchone()["search_query_id"]
@@ -305,7 +317,7 @@ def get_recent_searches(cur, session_id, limit=20):
     cur.execute(
         """
         SELECT search_query_id, origin_iata, depart_date, return_date,
-               budget_amount, budget_currency, hotel_tier, created_at
+               budget_amount, budget_currency, hotel_tier, travelers, rooms, created_at
         FROM search_queries
         WHERE session_id = %s
         ORDER BY created_at DESC
@@ -323,7 +335,7 @@ def get_search(cur, search_query_id, session_id):
     cur.execute(
         """
         SELECT search_query_id, origin_iata, depart_date, return_date,
-               budget_amount, budget_currency, hotel_tier, exact_dates_only, created_at
+               budget_amount, budget_currency, hotel_tier, exact_dates_only, travelers, rooms, created_at
         FROM search_queries
         WHERE search_query_id = %s
           AND session_id = %s

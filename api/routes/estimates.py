@@ -1,5 +1,5 @@
 import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +15,18 @@ router = APIRouter()
 Currency = Literal["ILS", "USD", "EUR"]
 HotelTier = Literal["budget", "average", "luxury"]
 
+Travelers = Annotated[int, Field(ge=1, le=9, description="Everyone flying; each needs a seat")]
+Rooms = Annotated[
+    int,
+    Field(ge=1, le=9, description="Hotel rooms; a room's price is for two adults (SerpApi's default occupancy)"),
+]
+
+
+# Shared by the estimate and the destination view: more rooms than people makes no sense.
+def check_rooms(travelers, rooms):
+    if rooms > travelers:
+        raise ValueError("rooms can't be more than travelers")
+
 
 class EstimateRequest(BaseModel):
     origin_iata: str
@@ -26,11 +38,14 @@ class EstimateRequest(BaseModel):
     hotel_tier: HotelTier = Field(
         default="average", description="The tier saved to history; the response always has all three"
     )
+    travelers: Travelers = 1
+    rooms: Rooms = 1
 
     @model_validator(mode="after")
     def return_after_depart(self):
         if self.return_date <= self.depart_date:
             raise ValueError("return_date must be after depart_date")
+        check_rooms(self.travelers, self.rooms)
         return self
 
 
@@ -45,9 +60,10 @@ class DestinationEstimate(BaseModel):
     matched_nights: int = Field(
         description="Nights of the matched flight, which the hotel is priced for - may differ from the request"
     )
-    flight_total_amount: float
-    hotel_total_amount: float
-    total_estimate_amount: float
+    flight_price_amount: float = Field(description="One traveler's round trip")
+    flight_total_amount: float = Field(description="Every traveler's round trip")
+    hotel_total_amount: float = Field(description="Every room, for matched_nights")
+    total_estimate_amount: float = Field(description="Flights + hotel, for the whole party")
     flight_seen_on: datetime.date = Field(
         description="The day a real search last saw this flight price - or, for prices collected before"
         " that was recorded, the day we collected it"
@@ -88,7 +104,7 @@ def create_estimate(body: EstimateRequest, cur: Cursor, session_id: SessionId) -
     require_known_origin(cur, body.origin_iata, location="body")
     search = run_search(
         cur, session_id, body.origin_iata, body.depart_date, body.return_date,
-        body.budget_amount, body.budget_currency, body.hotel_tier,
+        body.budget_amount, body.budget_currency, body.hotel_tier, body.travelers, body.rooms,
     )
     return EstimateResponse(
         search_id=search.search_query_id,

@@ -137,7 +137,8 @@ def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
             "flight_out_date": "2030-06-01",
             "flight_return_date": "2030-06-08",
             "matched_nights": 7,
-            "flight_total_amount": 1200.0,  # $300 at 0.25 USD per ILS
+            "flight_price_amount": 1200.0,  # $300 at 0.25 USD per ILS
+            "flight_total_amount": 1200.0,  # one traveler, the default
             "hotel_total_amount": 1680.0,  # 7 * $60
             "total_estimate_amount": 2880.0,
             "flight_seen_on": "2030-05-20",
@@ -146,6 +147,43 @@ def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
     ]
     # Luxury: 300 + 7 * 250 = $2050 = 8200 ILS, over the 5000 ILS budget.
     assert body["tiers"]["luxury"] == {"exact_dates_only": False, "has_missing_data": False, "destinations": []}
+
+
+# Each traveler needs a seat; the rooms are shared. Barcelona: $300 a seat,
+# $100 a room-night, 7 nights.
+@pytest.mark.parametrize(
+    ("travelers", "rooms", "flights", "hotel"),
+    [(1, 1, 300, 700), (2, 1, 600, 700), (4, 1, 1200, 700), (4, 2, 1200, 1400)],
+    ids=["alone", "couple", "family-one-room", "two-couples"],
+)
+def test_estimate_prices_the_whole_party(client, cur, travelers, rooms, flights, hotel):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100)
+
+    response = client.post(
+        "/api/v1/estimates", json=search_body(budget_currency="USD", travelers=travelers, rooms=rooms)
+    )
+
+    barcelona = response.json()["tiers"]["average"]["destinations"][0]
+    assert barcelona["flight_price_amount"] == 300
+    assert (barcelona["flight_total_amount"], barcelona["hotel_total_amount"]) == (flights, hotel)
+    assert barcelona["total_estimate_amount"] == flights + hotel
+
+
+def test_the_budget_is_for_the_whole_party_and_saved_with_it(client, cur):
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
+    add_hotel(cur, "barcelona", avg_usd=100)
+    # $1500: a couple's $1300 fits; two couples' $2600 doesn't.
+    couple = client.post("/api/v1/estimates", json=search_body(budget_amount=1500, budget_currency="USD", travelers=2))
+    two_couples = client.post(
+        "/api/v1/estimates", json=search_body(budget_amount=1500, budget_currency="USD", travelers=4, rooms=2)
+    )
+
+    assert len(couple.json()["tiers"]["average"]["destinations"]) == 1
+    assert two_couples.json()["tiers"]["average"]["destinations"] == []
+    saved = client.get(f"/api/v1/searches/{couple.json()['search_id']}").json()
+    assert (saved["travelers"], saved["rooms"]) == (2, 1)
+    assert saved["results"][0]["estimated_total_amount"] == 1300
 
 
 def test_estimate_shows_how_fresh_each_price_is(client, cur):
@@ -203,6 +241,9 @@ def test_searches_from_one_browser_share_a_session(client, cur):
         ({"hotel_tier": "premium"}, "hotel_tier"),
         ({"origin_iata": "XYZ"}, "origin_iata"),
         ({"origin_iata": "BCN"}, "origin_iata"),  # a real airport, but not one we depart from
+        ({"travelers": 0}, "travelers"),
+        ({"travelers": 10}, "travelers"),
+        ({"travelers": 2, "rooms": 3}, None),  # model-level check: more rooms than people
     ],
 )
 def test_invalid_search_is_422_naming_the_field(client, overrides, field):
@@ -312,6 +353,8 @@ def test_search_list_shows_this_browsers_searches_newest_first(client, cur):
         "budget_amount": 5000.0,
         "budget_currency": "ILS",
         "hotel_tier": "average",
+        "travelers": 1,
+        "rooms": 1,
     }
 
 
@@ -447,6 +490,7 @@ def test_trip_shows_live_options_with_hotel_prices(client, cur, live):
     assert body["flights"][1]["airline_name"] is None  # code not in the airlines table
     assert body["hotel"] == {
         "nights": 7,
+        "rooms": 1,
         "price_age_days": 0,
         "budget": {"per_night_amount": 240.0, "total_amount": 1680.0},
         "average": {"per_night_amount": 400.0, "total_amount": 2800.0},
@@ -505,6 +549,7 @@ def test_unknown_or_inactive_destination_is_404(client, cur):
         ({"return_date": DEPART.isoformat()}, None),
         ({"currency": "GBP"}, "currency"),
         ({"origin_iata": "XYZ"}, "origin_iata"),
+        ({"travelers": 1, "rooms": 2}, None),
     ],
 )
 def test_invalid_trip_query_is_422(client, cur, params, field):
@@ -555,6 +600,21 @@ def test_date_grid_has_the_cheapest_flight_per_date_pair_with_tier_totals(client
             "total_amount": {"budget": 2680.0, "average": 3800.0, "luxury": None},  # 250 + 7 * 60 / 100
         },
     ]
+
+
+def test_trip_and_date_grid_price_the_whole_party(client, cur, live):
+    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=250)
+
+    body = trip(client, cur, travelers=4, rooms=2).json()
+    grid = date_grid(client, cur, travelers=4, rooms=2).json()
+
+    assert body["flights"][0]["price_amount"] == 250  # still per traveler
+    assert body["hotel"]["rooms"] == 2
+    assert body["hotel"]["average"] == {"per_night_amount": 100.0, "total_amount": 1400.0}  # 2 rooms x 7 nights
+    cell = grid["cells"][0]
+    assert cell["flight_amount"] == 250
+    assert cell["total_amount"] == {"budget": 4 * 250 + 2 * 7 * 60, "average": 4 * 250 + 2 * 7 * 100, "luxury": None}
 
 
 def test_date_grid_without_flights_or_destination(client, cur):

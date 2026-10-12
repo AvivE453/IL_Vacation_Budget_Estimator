@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from api.deps import Cursor
 from api.errors import NOT_FOUND
-from api.routes.estimates import Currency, require_known_origin
+from api.routes.estimates import Currency, Rooms, Travelers, check_rooms, require_known_origin
 from app.queries import DATE_GRID_DAYS, HOTEL_TIERS, get_date_grid, get_destination, list_active_destinations
 from app.search import display_currency_and_rate
 from app.trip import trip_options
@@ -35,11 +35,14 @@ class TripQuery(BaseModel):
     return_date: datetime.date
     origin_iata: str = "TLV"
     currency: Currency = "ILS"
+    travelers: Travelers = 1
+    rooms: Rooms = 1
 
     @model_validator(mode="after")
     def return_after_depart(self):
         if self.return_date <= self.depart_date:
             raise ValueError("return_date must be after depart_date")
+        check_rooms(self.travelers, self.rooms)
         return self
 
 
@@ -53,7 +56,7 @@ class FlightOption(BaseModel):
     return_stops: int | None = Field(description="null when the option comes from collected data")
     outbound_minutes: int | None = Field(description="null when the option comes from collected data")
     return_minutes: int | None = Field(description="null when the option comes from collected data")
-    price_amount: float = Field(description="Round trip, without checked baggage")
+    price_amount: float = Field(description="One traveler's round trip, without checked baggage")
     price_seen_on: datetime.date | None = Field(
         description="The day a real Aviasales search saw this price; null for prices collected before it was recorded"
     )
@@ -61,12 +64,13 @@ class FlightOption(BaseModel):
 
 
 class HotelTierPrice(BaseModel):
-    per_night_amount: float
-    total_amount: float
+    per_night_amount: float = Field(description="One room, one night")
+    total_amount: float = Field(description="Every room, every night")
 
 
 class Hotel(BaseModel):
     nights: int = Field(description="Nights of the flight found, which may differ from the request")
+    rooms: int
     price_age_days: int | None = Field(description="Days since the hotel prices were collected")
     budget: HotelTierPrice | None = Field(description="null when this tier has no price on file")
     average: HotelTierPrice | None
@@ -103,7 +107,8 @@ def destination_trip(destination_id: int, query: Annotated[TripQuery, Query()], 
         if per_night_usd is None:
             return None
         return HotelTierPrice(
-            per_night_amount=amount(per_night_usd), total_amount=amount(float(per_night_usd) * trip.hotel_nights)
+            per_night_amount=amount(per_night_usd),
+            total_amount=amount(float(per_night_usd) * trip.hotel_nights * query.rooms),
         )
 
     return Trip(
@@ -116,6 +121,7 @@ def destination_trip(destination_id: int, query: Annotated[TripQuery, Query()], 
         flights=[FlightOption.model_validate({**f, "price_amount": amount(f["price_usd"])}) for f in trip.flights],
         hotel=Hotel(
             nights=trip.hotel_nights,
+            rooms=query.rooms,
             price_age_days=destination["hotel_price_age_days"],
             **{tier: tier_price(per_night) for tier, per_night in trip.hotel_per_night_usd.items()},
         ),
@@ -132,9 +138,10 @@ class DateGridCell(BaseModel):
     depart_date: datetime.date
     return_date: datetime.date
     nights: int
-    flight_amount: float = Field(description="The cheapest round trip on file for these exact dates")
+    flight_amount: float = Field(description="One traveler's cheapest round trip on file for these exact dates")
     total_amount: TierTotals = Field(
-        description="Flight + hotel for these nights, per hotel tier; null when the tier has no hotel price"
+        description="Every traveler's flight + every room for these nights, per hotel tier;"
+        " null when the tier has no hotel price"
     )
 
 
@@ -161,7 +168,11 @@ def destination_date_grid(destination_id: int, query: Annotated[TripQuery, Query
         totals = {}
         for tier in HOTEL_TIERS:
             per_night = destination[f"hotel_{tier}_per_night_usd"]
-            totals[tier] = None if per_night is None else from_usd(flight_usd + float(per_night) * nights, usd_per_unit)
+            if per_night is None:
+                totals[tier] = None
+            else:
+                party_usd = flight_usd * query.travelers + float(per_night) * nights * query.rooms
+                totals[tier] = from_usd(party_usd, usd_per_unit)
         cells.append(
             DateGridCell(
                 depart_date=row["depart_date"],

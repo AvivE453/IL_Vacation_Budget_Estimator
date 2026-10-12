@@ -17,6 +17,8 @@ function summary(searchId: number, createdAt: string): Schemas["SearchSummary"] 
     budget_amount: 8000,
     budget_currency: "ILS",
     hotel_tier: "average",
+    travelers: 2,
+    rooms: 1,
     created_at: createdAt,
   };
 }
@@ -31,8 +33,8 @@ test("lists this browser's searches newest first, numbered from the oldest", asy
 
   const rows = bodyRows(await screen.findByRole("table"));
   expect(rows.map(cellTexts)).toEqual([
-    ["2", "TLV", "7.11.2026", "14.11.2026", "8,000 ₪", "ממוצע", "12.10.2026 16:55"],
-    ["1", "TLV", "7.11.2026", "14.11.2026", "8,000 ₪", "ממוצע", "11.10.2026 11:00"],
+    ["2", "TLV", "7.11.2026", "14.11.2026", "8,000 ₪", "2 נוסעים, חדר אחד", "ממוצע", "12.10.2026 16:55"],
+    ["1", "TLV", "7.11.2026", "14.11.2026", "8,000 ₪", "2 נוסעים, חדר אחד", "ממוצע", "11.10.2026 11:00"],
   ]);
   expect(screen.getByRole("link", { name: "2" })).toHaveAttribute("href", "/history/52");
 });

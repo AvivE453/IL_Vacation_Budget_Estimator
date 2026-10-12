@@ -7,6 +7,8 @@ export type TripSearch = {
   currency: Schemas["EstimateRequest"]["budget_currency"];
   budget?: number;
   tier?: Schemas["EstimateRequest"]["hotel_tier"];
+  travelers?: number;
+  rooms?: number;
 };
 
 // The destination view keeps its search in the URL, so a refresh, the Back
@@ -18,6 +20,8 @@ export function destinationUrl(destinationId: number, search: TripSearch): strin
     origin_iata: search.origin_iata,
     currency: search.currency ?? "ILS",
     tier: search.tier ?? "average",
+    travelers: String(search.travelers ?? 1),
+    rooms: String(search.rooms ?? 1),
   });
   if (search.budget !== undefined) {
     params.set("budget", String(search.budget));

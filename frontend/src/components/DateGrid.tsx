@@ -36,8 +36,8 @@ export default function DateGrid({ grid, departDate, returnDate, tier, onPick }:
     <section className="card">
       <h2>תאריכים גמישים</h2>
       <p className="note">
-        מחיר הטיסה הלוך-חזור, עד {grid.days} ימים לפני ואחרי התאריכים שבחרתם. ירוק הוא הזול ביותר, ומעבר עם העכבר
-        מראה את הסך עם מלון {TIER_NAMES[tier]}. יש לנו מחירים ל-{grid.cells.length} מתוך {possiblePairs} צירופי
+        מחיר הטיסה הלוך-חזור לאדם, עד {grid.days} ימים לפני ואחרי התאריכים שבחרתם. ירוק הוא הזול ביותר, ומעבר עם העכבר
+        מראה את הסך לכל הנוסעים עם מלון {TIER_NAMES[tier]}. יש לנו מחירים ל-{grid.cells.length} מתוך {possiblePairs} צירופי
         תאריכים; תא ריק הוא צירוף שאין לו מחיר שנאסף. לחיצה על תא מציגה את הטיול הזה.
       </p>
       <div className="grid-scroll">
@@ -79,7 +79,7 @@ export default function DateGrid({ grid, departDate, returnDate, tier, onPick }:
                         type="button"
                         onClick={() => onPick(d, r)}
                         title={`${nights(cell.nights)}: ${totalNote}`}
-                        aria-label={`יציאה ${formatDate(d)}, חזרה ${formatDate(r)}: טיסה ${money(cell.flight_amount, grid.currency)}, ${nights(cell.nights)}, ${totalNote}`}
+                        aria-label={`יציאה ${formatDate(d)}, חזרה ${formatDate(r)}: טיסה ${money(cell.flight_amount, grid.currency)} לאדם, ${nights(cell.nights)}, ${totalNote}`}
                       >
                         {Math.round(cell.flight_amount).toLocaleString("en-US")}
                       </button>

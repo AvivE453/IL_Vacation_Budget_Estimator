@@ -25,19 +25,22 @@ class SearchOutcome:
     tiers: dict[str, TierResult]
 
 
-def run_search(cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier):
+def run_search(
+    cur, session_id, origin_iata, depart_date, return_date, budget_amount, budget_currency, hotel_tier,
+    travelers=1, rooms=1,
+):
     usd_per_unit = _usd_per_unit_or_none(cur, budget_currency)
     # Without a rate the budget can't be compared in USD: the search still
     # runs, unfiltered by budget, but its results aren't saved to /history.
     budget_amount_usd = to_usd(budget_amount, usd_per_unit) if usd_per_unit else None
 
-    per_tier = estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount_usd)
+    per_tier = estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount_usd, travelers, rooms)
     exact = {tier: _exact_dates_only(estimates, depart_date, return_date) for tier, (estimates, _) in per_tier.items()}
 
     # Only the tier the user picked is saved; the other two are there to switch to.
     search_query_id = insert_search_query(
         cur, session_id, origin_iata, depart_date, return_date,
-        budget_amount, budget_currency, hotel_tier, exact[hotel_tier],
+        budget_amount, budget_currency, hotel_tier, exact[hotel_tier], travelers, rooms,
     )
     if budget_amount_usd is not None:
         insert_search_results(cur, search_query_id, per_tier[hotel_tier][0], budget_amount_usd)
@@ -91,6 +94,7 @@ def _exact_dates_only(estimates, depart_date, return_date):
 def _with_display_amounts(estimate, usd_per_unit):
     return {
         **estimate,
+        "flight_price_amount": from_usd(estimate["flight_price_usd"], usd_per_unit),
         "flight_total_amount": from_usd(estimate["flight_total_usd"], usd_per_unit),
         "hotel_total_amount": from_usd(estimate["hotel_total_usd"], usd_per_unit),
         "total_estimate_amount": from_usd(estimate["total_estimate_usd"], usd_per_unit),

@@ -34,6 +34,7 @@ export function estimate(overrides: Partial<Schemas["DestinationEstimate"]> = {}
     flight_out_date: DEPART,
     flight_return_date: RETURN,
     matched_nights: 7,
+    flight_price_amount: 700, // per traveler; the totals are for two
     flight_total_amount: 1400,
     hotel_total_amount: 2100,
     total_estimate_amount: 3500,
@@ -90,6 +91,7 @@ export function trip(overrides: Partial<Schemas["Trip"]> = {}): Schemas["Trip"] 
     flights: [flight({ price_amount: 1460 }), flight({ airline_name: "Wizz Air", outbound_stops: 1, price_amount: 745 })],
     hotel: {
       nights: 7,
+      rooms: 1,
       price_age_days: 5,
       budget: { per_night_amount: 500, total_amount: 3500 },
       average: { per_night_amount: 900, total_amount: 6300 },
@@ -123,6 +125,8 @@ export function savedSearch(overrides: Partial<Schemas["SavedSearch"]> = {}): Sc
     budget_amount: 8000,
     budget_currency: "ILS",
     hotel_tier: "average",
+    travelers: 2,
+    rooms: 1,
     created_at: "2026-10-12T13:55:12Z",
     exact_dates_only: true,
     currency: "ILS",

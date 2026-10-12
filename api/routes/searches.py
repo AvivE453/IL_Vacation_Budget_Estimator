@@ -23,6 +23,8 @@ class SearchSummary(BaseModel):
     budget_amount: float
     budget_currency: str
     hotel_tier: HotelTier
+    travelers: int
+    rooms: int
     created_at: datetime.datetime
 
 

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 
 import { api, unwrap } from "../api/client";
-import { dateTime, formatDate, money, TIER_NAMES } from "../format";
+import { dateTime, formatDate, money, rooms, TIER_NAMES, travelers } from "../format";
 
 export default function HistoryPage() {
   const { data, isPending, error } = useQuery({
@@ -35,6 +35,7 @@ export default function HistoryPage() {
                 <th>תאריך יציאה</th>
                 <th>תאריך חזרה</th>
                 <th>תקציב</th>
+                <th>מי נוסע</th>
                 <th>מלון</th>
                 <th>מתי חיפשת</th>
               </tr>
@@ -50,6 +51,7 @@ export default function HistoryPage() {
                   <td>{formatDate(search.depart_date)}</td>
                   <td>{formatDate(search.return_date)}</td>
                   <td>{money(search.budget_amount, search.budget_currency)}</td>
+                  <td>{`${travelers(search.travelers)}, ${rooms(search.rooms)}`}</td>
                   <td>{TIER_NAMES[search.hotel_tier]}</td>
                   <td>{dateTime(search.created_at)}</td>
                 </tr>
