@@ -15,13 +15,18 @@ test("shows coverage per destination, gaps included, and the daily volume", asyn
           {
             city_name: "Barcelona",
             country_name: "Spain",
+            city_name_he: "ברצלונה",
+            country_name_he: "ספרד",
             flight_obs_count: 120,
             hotel_sample_size: 20,
             hotel_price_age_days: 1,
           },
           {
+            // No Hebrew name in the seed: the English one is shown.
             city_name: "Madrid",
             country_name: "Spain",
+            city_name_he: null,
+            country_name_he: "ספרד",
             flight_obs_count: 0,
             hotel_sample_size: null,
             hotel_price_age_days: null,
@@ -36,8 +41,8 @@ test("shows coverage per destination, gaps included, and the daily volume", asyn
 
   const [coverage, volume] = await screen.findAllByRole("table");
   expect(bodyRows(coverage).map(cellTexts)).toEqual([
-    ["Barcelona", "Spain", "120", "20", "1 day ago"],
-    ["Madrid", "Spain", "0", "-", "-"],
+    ["ברצלונה", "ספרד", "120", "20", "אתמול"],
+    ["Madrid", "ספרד", "0", "-", "-"],
   ]);
-  expect(bodyRows(volume).map(cellTexts)).toEqual([["2026-10-07", "9312", "12"]]);
+  expect(bodyRows(volume).map(cellTexts)).toEqual([["7.10.2026", "9312", "12"]]);
 });

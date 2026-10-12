@@ -13,13 +13,22 @@ export function origin(): Schemas["Origin"] {
 }
 
 export function destination(overrides: Partial<Schemas["Destination"]> = {}): Schemas["Destination"] {
-  return { destination_id: 7, city_name: "Paris", country_name: "France", iata_code: "PAR", ...overrides };
+  return {
+    destination_id: 7,
+    city_name: "Paris",
+    country_name: "France",
+    city_name_he: "פריז",
+    country_name_he: "צרפת",
+    iata_code: "PAR",
+    ...overrides,
+  };
 }
 
 export function estimate(overrides: Partial<Schemas["DestinationEstimate"]> = {}): Schemas["DestinationEstimate"] {
   return {
     destination_id: 7,
     city_name: "Paris",
+    city_name_he: "פריז",
     airline_code: "AF",
     airline_name: "Air France",
     flight_out_date: DEPART,
@@ -122,6 +131,7 @@ export function savedSearch(overrides: Partial<Schemas["SavedSearch"]> = {}): Sc
         cost_rank: 1,
         destination_id: 7,
         city_name: "Paris",
+        city_name_he: "פריז",
         airline_code: "AF",
         airline_name: "Air France",
         estimated_total_amount: 3500,

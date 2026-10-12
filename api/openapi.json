@@ -604,6 +604,30 @@
             "type": "string",
             "title": "Country Name"
           },
+          "city_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Name He",
+            "description": "Hebrew name; null when the seed has none (show city_name)"
+          },
+          "country_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Name He",
+            "description": "Hebrew name; null when the seed has none (show country_name)"
+          },
           "iata_code": {
             "type": "string",
             "title": "Iata Code"
@@ -614,6 +638,8 @@
           "destination_id",
           "city_name",
           "country_name",
+          "city_name_he",
+          "country_name_he",
           "iata_code"
         ],
         "title": "Destination"
@@ -627,6 +653,30 @@
           "country_name": {
             "type": "string",
             "title": "Country Name"
+          },
+          "city_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Name He",
+            "description": "Hebrew name; null when the seed has none (show city_name)"
+          },
+          "country_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Name He",
+            "description": "Hebrew name; null when the seed has none (show country_name)"
           },
           "flight_obs_count": {
             "type": "integer",
@@ -661,6 +711,8 @@
         "required": [
           "city_name",
           "country_name",
+          "city_name_he",
+          "country_name_he",
           "flight_obs_count",
           "hotel_sample_size",
           "hotel_price_age_days"
@@ -676,6 +728,18 @@
           "city_name": {
             "type": "string",
             "title": "City Name"
+          },
+          "city_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Name He",
+            "description": "Hebrew name; null when the seed has none (show city_name)"
           },
           "airline_code": {
             "anyOf": [
@@ -743,6 +807,7 @@
         "required": [
           "destination_id",
           "city_name",
+          "city_name_he",
           "airline_code",
           "airline_name",
           "flight_out_date",
@@ -1157,6 +1222,18 @@
             "type": "string",
             "title": "City Name"
           },
+          "city_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Name He",
+            "description": "Hebrew name; null when the seed has none (show city_name)"
+          },
           "airline_code": {
             "anyOf": [
               {
@@ -1193,6 +1270,7 @@
           "cost_rank",
           "destination_id",
           "city_name",
+          "city_name_he",
           "airline_code",
           "airline_name",
           "estimated_total_amount",

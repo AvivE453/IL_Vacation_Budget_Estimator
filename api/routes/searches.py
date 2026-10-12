@@ -30,6 +30,7 @@ class SavedResult(BaseModel):
     cost_rank: int
     destination_id: int
     city_name: str
+    city_name_he: str | None = Field(description="Hebrew name; null when the seed has none (show city_name)")
     airline_code: str | None
     airline_name: str | None
     estimated_total_amount: float

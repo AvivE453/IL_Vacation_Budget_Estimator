@@ -31,8 +31,8 @@ test("lists this browser's searches newest first, numbered from the oldest", asy
 
   const rows = bodyRows(await screen.findByRole("table"));
   expect(rows.map(cellTexts)).toEqual([
-    ["2", "TLV", "2026-11-07", "2026-11-14", "8000.00 ILS", "average", "2026-10-12 16:55"],
-    ["1", "TLV", "2026-11-07", "2026-11-14", "8000.00 ILS", "average", "2026-10-11 11:00"],
+    ["2", "TLV", "7.11.2026", "14.11.2026", "8,000 ₪", "ממוצע", "12.10.2026 16:55"],
+    ["1", "TLV", "7.11.2026", "14.11.2026", "8,000 ₪", "ממוצע", "11.10.2026 11:00"],
   ]);
   expect(screen.getByRole("link", { name: "2" })).toHaveAttribute("href", "/history/52");
 });
@@ -41,17 +41,17 @@ test("a browser with no searches is pointed to the search form", async () => {
   server.use(http.get("/api/v1/searches", () => HttpResponse.json([])));
   renderApp("/history");
 
-  expect(await screen.findByText(/No searches from this browser yet/)).toBeVisible();
+  expect(await screen.findByText(/עוד לא חיפשת מהדפדפן הזה/)).toBeVisible();
 });
 
 test("a saved search shows the ranking saved at the time", async () => {
   server.use(http.get("/api/v1/searches/41", () => HttpResponse.json(savedSearch())));
   renderApp("/history/41");
 
-  expect(await screen.findByRole("heading", { name: "TLV, 2026-11-07 → 2026-11-14" })).toBeVisible();
-  expect(screen.getByText("These estimates were based on an exact date match.")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "TLV, 7.11.2026 – 14.11.2026" })).toBeVisible();
+  expect(screen.getByText("ההערכות האלה התבססו על טיסות בתאריכים המדויקים.")).toBeVisible();
   expect(bodyRows(screen.getByRole("table")).map(cellTexts)).toEqual([
-    ["1", "Paris", "Air France", "average", "3500.00", "yes"],
+    ["1", "פריז", "Air France", "ממוצע", "3,500 ₪", "כן"],
   ]);
 });
 
@@ -59,7 +59,7 @@ test("a search where every destination was over budget is found, not a 404", asy
   server.use(http.get("/api/v1/searches/41", () => HttpResponse.json(savedSearch({ results: [] }))));
   renderApp("/history/41");
 
-  expect(await screen.findByText(/Every destination was over budget/)).toBeVisible();
+  expect(await screen.findByText(/כל היעדים היו מעל התקציב/)).toBeVisible();
 });
 
 test("another browser's search is not found after one request, without retries", async () => {
@@ -72,6 +72,6 @@ test("another browser's search is not found after one request, without retries",
   );
   renderApp("/history/99");
 
-  expect(await screen.findByRole("heading", { name: "Search not found" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "החיפוש לא נמצא" })).toBeVisible();
   expect(calls).toBe(1);
 });

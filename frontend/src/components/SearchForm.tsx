@@ -1,7 +1,20 @@
-import { type ChangeEvent, type FormEvent, useState } from "react";
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
 
 import type { Schemas } from "../api/client";
-import { addDays, todayIso } from "../format";
+import {
+  addDays,
+  cityName,
+  countryName,
+  type HotelTier,
+  nights,
+  nightsBetween,
+  TIER_NAMES,
+  TIERS,
+  todayIso,
+} from "../format";
+
+type Currency = "ILS" | "USD" | "EUR";
+type Mode = "all" | "destination";
 
 type Props = {
   origins: Schemas["Origin"][];
@@ -11,23 +24,48 @@ type Props = {
   onViewDestination: (destinationId: number, request: Schemas["EstimateRequest"]) => void;
 };
 
+const CURRENCIES: { code: Currency; label: string }[] = [
+  { code: "ILS", label: "₪ שקל" },
+  { code: "USD", label: "$ דולר" },
+  { code: "EUR", label: "€ יורו" },
+];
+
+const TIER_HINTS: Record<HotelTier, string> = {
+  budget: "ממוצע 10 המלונות הזולים",
+  average: "ממוצע כל המלונות",
+  luxury: "ממוצע 10 המלונות היקרים",
+};
+
+const TRIP_LENGTHS = [
+  { label: "סופ״ש", nights: 3 },
+  { label: "שבוע", nights: 7 },
+  { label: "10 ימים", nights: 10 },
+  { label: "שבועיים", nights: 14 },
+];
+
+const BUDGET_SLIDER = { ILS: 30_000, USD: 8_000, EUR: 7_500 } satisfies Record<Currency, number>;
+
 // What the inputs hold: always strings, converted to the API's types on submit.
 type FormValues = {
   origin_iata: string;
-  destination_id: string; // "" for every destination
+  destination: string; // the typed or picked "City, Country"
   depart_date: string;
   return_date: string;
   budget_amount: string;
-  budget_currency: Schemas["EstimateRequest"]["budget_currency"];
-  hotel_tier: Schemas["EstimateRequest"]["hotel_tier"];
+  budget_currency: Currency;
+  hotel_tier: HotelTier;
 };
 
+// Two searches in one form: "where can I go?" ranks every destination for the
+// budget (and is saved to history); "a specific destination" opens that
+// destination's view with every flight option.
 export default function SearchForm({ origins, destinations, isSubmitting, onEstimate, onViewDestination }: Props) {
+  const [mode, setMode] = useState<Mode>("all");
   const [values, setValues] = useState<FormValues>(() => {
     const today = todayIso();
     return {
       origin_iata: origins[0].iata_code,
-      destination_id: "",
+      destination: "",
       depart_date: today,
       return_date: addDays(today, 7),
       budget_amount: "5000",
@@ -36,101 +74,206 @@ export default function SearchForm({ origins, destinations, isSubmitting, onEsti
     };
   });
 
+  // The trip's length, remembered apart from the dates: a date input is empty
+  // while being typed, and moving the departure should still keep the length.
+  const tripLength = useRef(7);
+  const tripNights = nightsBetween(values.depart_date, values.return_date);
+  // Picked in Hebrew ("פריז, צרפת"), but typing the English name finds it too.
+  const hebrewLabel = (d: Schemas["Destination"]) => `${cityName(d)}, ${countryName(d)}`;
+  const englishLabel = (d: Schemas["Destination"]) => `${d.city_name}, ${d.country_name}`;
+  const chosen = destinations.find((d) => [hebrewLabel(d), englishLabel(d)].includes(values.destination.trim()));
+  const byHebrewName = [...destinations].sort((a, b) => cityName(a).localeCompare(cityName(b), "he"));
+
   // One handler for every input: each one's `name` is the field it updates.
   function handleChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = event.target;
-    setValues((previous) => ({ ...previous, [name]: value }));
+    update({ [name]: value });
+  }
+
+  function update(changes: Partial<FormValues>) {
+    const next = { ...values, ...changes };
+    // Moving the departure keeps the trip's length, as on travel sites.
+    if (changes.depart_date && changes.return_date === undefined) {
+      next.return_date = addDays(changes.depart_date, tripLength.current);
+    }
+    if (next.depart_date && next.return_date && nightsBetween(next.depart_date, next.return_date) > 0) {
+      tripLength.current = nightsBetween(next.depart_date, next.return_date);
+    }
+    setValues(next);
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const { destination_id, ...rest } = values;
-    const request = { ...rest, budget_amount: Number(values.budget_amount) };
-    // No destination: rank them all (saved to history). One destination: its
-    // own view, with every flight option for the exact dates.
-    if (destination_id === "") {
+    const request = {
+      origin_iata: values.origin_iata,
+      depart_date: values.depart_date,
+      return_date: values.return_date,
+      budget_amount: Number(values.budget_amount),
+      budget_currency: values.budget_currency,
+      hotel_tier: values.hotel_tier,
+    };
+    if (mode === "all") {
       onEstimate(request);
-    } else {
-      onViewDestination(Number(destination_id), request);
+    } else if (chosen) {
+      onViewDestination(chosen.destination_id, request);
     }
   }
 
   return (
     <form className="card" onSubmit={handleSubmit}>
-      <label>
-        Origin airport
-        <select name="origin_iata" value={values.origin_iata} onChange={handleChange} required>
-          {origins.map((origin) => (
-            <option key={origin.iata_code} value={origin.iata_code}>
-              {origin.city_name} ({origin.iata_code})
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="mode-tabs" role="group" aria-label="סוג החיפוש">
+        <button type="button" aria-pressed={mode === "all"} onClick={() => setMode("all")}>
+          לאן כדאי לטוס?
+          <small>כל היעדים, מהזול ליקר</small>
+        </button>
+        <button type="button" aria-pressed={mode === "destination"} onClick={() => setMode("destination")}>
+          יעד מסוים
+          <small>כל הטיסות ליעד אחד, ותאריכים גמישים</small>
+        </button>
+      </div>
 
-      <label>
-        Destination
-        <select name="destination_id" value={values.destination_id} onChange={handleChange}>
-          <option value="">All destinations, cheapest first</option>
-          {destinations.map((d) => (
-            <option key={d.destination_id} value={d.destination_id}>
-              {d.city_name}, {d.country_name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="form-grid">
+        {mode === "destination" && (
+          <>
+            <label className="field field-wide">
+              <span>לאן?</span>
+              <input
+                name="destination"
+                list="destination-options"
+                placeholder="הקלידו עיר, למשל פריז"
+                value={values.destination}
+                onChange={handleChange}
+                // The browser blocks the submit and shows this until a listed destination is picked.
+                ref={(input) => input?.setCustomValidity(chosen ? "" : "בחרו יעד מהרשימה")}
+                required
+                autoComplete="off"
+              />
+            </label>
+            {/* Outside the label: the options' text would otherwise become part of the field's name. */}
+            <datalist id="destination-options">
+              {byHebrewName.map((d) => (
+                // The option's text is shown beside its value, and the browser matches typing against both.
+                <option key={d.destination_id} value={hebrewLabel(d)}>
+                  {englishLabel(d)}
+                </option>
+              ))}
+            </datalist>
+          </>
+        )}
 
-      <label>
-        Departure date
-        <input type="date" name="depart_date" value={values.depart_date} onChange={handleChange} required />
-      </label>
+        <label className="field">
+          <span>יוצאים מ-</span>
+          <select name="origin_iata" value={values.origin_iata} onChange={handleChange} required>
+            {origins.map((origin) => (
+              <option key={origin.iata_code} value={origin.iata_code}>
+                {origin.airport_name} ({origin.iata_code})
+              </option>
+            ))}
+          </select>
+        </label>
 
-      <label>
-        Return date
-        <input
-          type="date"
-          name="return_date"
-          value={values.return_date}
-          min={addDays(values.depart_date, 1)}
-          onChange={handleChange}
-          required
-        />
-      </label>
+        <label className="field">
+          <span>תאריך יציאה</span>
+          <input
+            type="date"
+            name="depart_date"
+            value={values.depart_date}
+            min={todayIso()}
+            onChange={handleChange}
+            required
+          />
+        </label>
 
-      <label>
-        Budget
-        <input
-          type="number"
-          name="budget_amount"
-          min="1"
-          step="1"
-          value={values.budget_amount}
-          onChange={handleChange}
-          required
-        />
-      </label>
+        <label className="field">
+          <span>
+            תאריך חזרה {tripNights > 0 && <span className="nights-badge">{nights(tripNights)}</span>}
+          </span>
+          <input
+            type="date"
+            name="return_date"
+            value={values.return_date}
+            min={addDays(values.depart_date, 1)}
+            onChange={handleChange}
+            required
+          />
+        </label>
 
-      <label>
-        Budget currency
-        <select name="budget_currency" value={values.budget_currency} onChange={handleChange}>
-          <option value="ILS">ILS</option>
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-        </select>
-      </label>
+        <div className="field">
+          <span>אורך הטיול</span>
+          <div className="chips" role="group" aria-label="אורך הטיול">
+            {TRIP_LENGTHS.map((length) => (
+              <button
+                key={length.nights}
+                type="button"
+                aria-pressed={tripNights === length.nights}
+                onClick={() => update({ return_date: addDays(values.depart_date, length.nights) })}
+              >
+                {length.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <label>
-        Hotel tier
-        <select name="hotel_tier" value={values.hotel_tier} onChange={handleChange}>
-          <option value="budget">Budget (avg of cheapest ~10 hotels)</option>
-          <option value="average">Average (all hotels found)</option>
-          <option value="luxury">Luxury (avg of priciest ~10 hotels)</option>
-        </select>
-      </label>
+        <fieldset className="field field-wide">
+          <legend>תקציב לטיול: טיסה ומלון</legend>
+          <div className="budget-row">
+            <input
+              type="number"
+              name="budget_amount"
+              aria-label="תקציב"
+              min="1"
+              step="1"
+              value={values.budget_amount}
+              onChange={handleChange}
+              required
+            />
+            <div className="segmented" role="group" aria-label="מטבע">
+              {CURRENCIES.map((currency) => (
+                <button
+                  key={currency.code}
+                  type="button"
+                  aria-pressed={values.budget_currency === currency.code}
+                  onClick={() => update({ budget_currency: currency.code })}
+                >
+                  {currency.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <input
+            type="range"
+            aria-label="תקציב, סרגל"
+            min="0"
+            max={BUDGET_SLIDER[values.budget_currency]}
+            step="500"
+            value={values.budget_amount}
+            onChange={(event) => update({ budget_amount: event.target.value })}
+          />
+        </fieldset>
 
-      <button type="submit" className="btn" disabled={isSubmitting}>
-        {isSubmitting ? "Estimating..." : values.destination_id === "" ? "Estimate" : "Show this destination"}
-      </button>
+        <fieldset className="field field-wide">
+          <legend>רמת המלון</legend>
+          <div className="segmented" role="group" aria-label="רמת המלון">
+            {TIERS.map((tier) => (
+              <button
+                key={tier}
+                type="button"
+                aria-pressed={values.hotel_tier === tier}
+                onClick={() => update({ hotel_tier: tier })}
+              >
+                {TIER_NAMES[tier]}
+                <small>{TIER_HINTS[tier]}</small>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
+      <div className="form-actions">
+        <button type="submit" className="btn btn-go" disabled={isSubmitting}>
+          {isSubmitting ? "מחפשים..." : mode === "all" ? "מצאו לי יעדים" : "הראו את היעד"}
+        </button>
+      </div>
     </form>
   );
 }

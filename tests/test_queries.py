@@ -91,3 +91,17 @@ def test_date_grid_uses_the_rankings_freshness_rule(cur):
         (DEPART, RETURN - datetime.timedelta(days=1), 180.0),
         (DEPART, RETURN, 260.0),
     ]
+
+
+# The frontend is in Hebrew: every seeded city and country needs its Hebrew
+# name (sql/seed/*.csv), or it shows up in English among the Hebrew ones.
+def test_every_destination_and_country_has_a_hebrew_name(cur):
+    cur.execute(
+        """
+        SELECT d.city_name, c.country_name
+        FROM destinations AS d
+        JOIN countries AS c ON c.country_code = d.country_code
+        WHERE d.city_name_he IS NULL OR c.country_name_he IS NULL
+        """
+    )
+    assert cur.fetchall() == []

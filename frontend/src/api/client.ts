@@ -37,9 +37,19 @@ export async function unwrap<R extends ApiResult>(request: Promise<R>): Promise<
   return data as Exclude<R["data"], undefined>;
 }
 
-// The field-by-field messages of a 422, e.g. "budget_amount: Input should be
-// greater than 0". A check on the whole request (return before departure)
-// has no field, so its message stands alone.
+// What the user calls each field the API may reject.
+const FIELD_NAMES: Record<string, string> = {
+  origin_iata: "שדה היציאה",
+  depart_date: "תאריך היציאה",
+  return_date: "תאריך החזרה",
+  budget_amount: "התקציב",
+  budget_currency: "המטבע",
+  hotel_tier: "רמת המלון",
+};
+
+// The field-by-field messages of a 422, e.g. "התקציב: Input should be greater
+// than 0" (the message itself is the API's). A check on the whole request
+// (return before departure) has no field, so its message stands alone.
 export function validationMessages(error: unknown): string[] {
   if (!(error instanceof ApiError) || error.status !== 422) {
     return [];
@@ -47,6 +57,9 @@ export function validationMessages(error: unknown): string[] {
   const { detail } = error.body as Schemas["HTTPValidationError"];
   return (detail ?? []).map((issue) => {
     const field = issue.loc.at(-1);
-    return field === "body" ? issue.msg : `${field}: ${issue.msg}`;
+    if (field === "body") {
+      return issue.msg;
+    }
+    return `${FIELD_NAMES[String(field)] ?? field}: ${issue.msg}`;
   });
 }

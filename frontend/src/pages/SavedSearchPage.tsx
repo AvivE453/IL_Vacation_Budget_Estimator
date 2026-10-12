@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 
 import { api, ApiError, unwrap } from "../api/client";
-import { money } from "../format";
+import { cityName, formatDate, money, TIER_NAMES } from "../format";
 
 export default function SavedSearchPage() {
   // The :searchId part of /history/:searchId - always a string from the URL.
@@ -18,73 +18,71 @@ export default function SavedSearchPage() {
   const notFound = !Number.isInteger(searchId) || (error instanceof ApiError && error.status === 404);
   if (notFound) {
     return (
-      <>
-        <h1>Search not found</h1>
+      <div className="card">
+        <h1>החיפוש לא נמצא</h1>
         <p>
-          It doesn't exist, or it was made in another browser. <Link to="/history">Back to your searches</Link>
+          הוא לא קיים, או שנעשה מדפדפן אחר. <Link to="/history">לחיפושים שלי</Link>
         </p>
-      </>
+      </div>
     );
   }
   if (isPending) {
-    return <p>Loading...</p>;
+    return <p className="updating">טוען...</p>;
   }
   if (error) {
-    return <p className="error">Could not load this search: {error.message}</p>;
+    return <p className="error">לא הצלחנו לטעון את החיפוש: {error.message}</p>;
   }
 
   return (
-    <>
+    <section className="card">
       <h1>
-        {data.origin_iata}, {data.depart_date} &rarr; {data.return_date}
+        {data.origin_iata}, {formatDate(data.depart_date)} – {formatDate(data.return_date)}
       </h1>
-      <p>
-        Budget: {money(data.budget_amount)} {data.budget_currency}, {data.hotel_tier} hotels
+      <p className="note">
+        תקציב {money(data.budget_amount, data.budget_currency)}, מלון {TIER_NAMES[data.hotel_tier]}
       </p>
       {data.exact_dates_only !== null && (
-        <p>
-          <small>
-            {data.exact_dates_only
-              ? "These estimates were based on an exact date match."
-              : "These estimates were based on the nearest available dates, not an exact match."}
-          </small>
+        <p className="note">
+          {data.exact_dates_only
+            ? "ההערכות האלה התבססו על טיסות בתאריכים המדויקים."
+            : "ההערכות האלה התבססו על התאריכים הקרובים ביותר, לא על התאריכים המדויקים."}
         </p>
       )}
 
       {data.results.length === 0 ? (
-        <div className="card">
-          <p>Every destination was over budget for this search, so no ranking was saved.</p>
-        </div>
+        <p>כל היעדים היו מעל התקציב בחיפוש הזה, ולכן לא נשמר דירוג.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Destination</th>
-              <th>Airline</th>
-              <th>Hotel tier</th>
-              <th>Total estimate ({data.currency})</th>
-              <th>Within budget?</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.results.map((result) => (
-              <tr key={result.destination_id}>
-                <td>{result.cost_rank}</td>
-                <td>{result.city_name}</td>
-                <td>{result.airline_name ?? result.airline_code ?? "-"}</td>
-                <td>{data.hotel_tier}</td>
-                <td>{money(result.estimated_total_amount)}</td>
-                <td>
-                  <span className={result.within_budget ? "tag tag-yes" : "tag tag-no"}>
-                    {result.within_budget ? "yes" : "no"}
-                  </span>
-                </td>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>מקום</th>
+                <th>יעד</th>
+                <th>חברה</th>
+                <th>מלון</th>
+                <th>סך הכול</th>
+                <th>בתקציב?</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.results.map((result) => (
+                <tr key={result.destination_id}>
+                  <td>{result.cost_rank}</td>
+                  <td>{cityName(result)}</td>
+                  <td>{result.airline_name ?? result.airline_code ?? "-"}</td>
+                  <td>{TIER_NAMES[data.hotel_tier]}</td>
+                  <td className="total">{money(result.estimated_total_amount, data.currency)}</td>
+                  <td>
+                    <span className={result.within_budget ? "tag tag-yes" : "tag tag-no"}>
+                      {result.within_budget ? "כן" : "לא"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </>
+    </section>
   );
 }

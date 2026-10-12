@@ -2,11 +2,11 @@ import { Link } from "react-router";
 
 export default function NotFoundPage() {
   return (
-    <>
-      <h2>Page not found</h2>
+    <div className="card">
+      <h1>הדף לא נמצא</h1>
       <p>
-        <Link to="/">Back to search</Link>
+        <Link to="/">חזרה לחיפוש</Link>
       </p>
-    </>
+    </div>
   );
 }

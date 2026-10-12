@@ -73,6 +73,8 @@ def test_data_quality_shows_coverage_and_gaps(client, cur):
     assert coverage["Barcelona"] == {
         "city_name": "Barcelona",
         "country_name": "Spain",
+        "city_name_he": "ברצלונה",
+        "country_name_he": "ספרד",
         "flight_obs_count": 1,
         "hotel_sample_size": 25,
         "hotel_price_age_days": 0,
@@ -129,6 +131,7 @@ def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
         {
             "destination_id": budget_tier["destinations"][0]["destination_id"],
             "city_name": "Barcelona",
+            "city_name_he": "ברצלונה",
             "airline_code": "IZ",
             "airline_name": None,
             "flight_out_date": "2030-06-01",
@@ -334,6 +337,7 @@ def test_saved_search_is_shown_in_its_budget_currency(client, cur):
             "cost_rank": 1,
             "destination_id": body["results"][0]["destination_id"],
             "city_name": "Barcelona",
+            "city_name_he": "ברצלונה",
             "airline_code": None,
             "airline_name": None,
             "estimated_total_amount": 4000.0,  # $1000 at 0.25 USD per ILS
@@ -378,6 +382,7 @@ def test_destinations_lists_every_active_destination(client, cur):
     assert len(destinations) == count_active_destinations(cur)
     barcelona = next(d for d in destinations if d["iata_code"] == "BCN")
     assert (barcelona["city_name"], barcelona["country_name"]) == ("Barcelona", "Spain")
+    assert (barcelona["city_name_he"], barcelona["country_name_he"]) == ("ברצלונה", "ספרד")
 
 
 # --- GET /api/v1/destinations/{id}/trip --------------------------------------

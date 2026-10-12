@@ -234,6 +234,16 @@ export interface components {
             city_name: string;
             /** Country Name */
             country_name: string;
+            /**
+             * City Name He
+             * @description Hebrew name; null when the seed has none (show city_name)
+             */
+            city_name_he: string | null;
+            /**
+             * Country Name He
+             * @description Hebrew name; null when the seed has none (show country_name)
+             */
+            country_name_he: string | null;
             /** Iata Code */
             iata_code: string;
         };
@@ -243,6 +253,16 @@ export interface components {
             city_name: string;
             /** Country Name */
             country_name: string;
+            /**
+             * City Name He
+             * @description Hebrew name; null when the seed has none (show city_name)
+             */
+            city_name_he: string | null;
+            /**
+             * Country Name He
+             * @description Hebrew name; null when the seed has none (show country_name)
+             */
+            country_name_he: string | null;
             /** Flight Obs Count */
             flight_obs_count: number;
             /**
@@ -262,6 +282,11 @@ export interface components {
             destination_id: number;
             /** City Name */
             city_name: string;
+            /**
+             * City Name He
+             * @description Hebrew name; null when the seed has none (show city_name)
+             */
+            city_name_he: string | null;
             /** Airline Code */
             airline_code: string | null;
             /**
@@ -458,6 +483,11 @@ export interface components {
             destination_id: number;
             /** City Name */
             city_name: string;
+            /**
+             * City Name He
+             * @description Hebrew name; null when the seed has none (show city_name)
+             */
+            city_name_he: string | null;
             /** Airline Code */
             airline_code: string | null;
             /** Airline Name */

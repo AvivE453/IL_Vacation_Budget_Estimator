@@ -1,14 +1,21 @@
+/* Blue, light blue, green and white. Layout uses logical properties
+   (inline-start/end), so it reads right to left with <html dir="rtl">. */
 :root {
-  --primary: #1a5fb4;
-  --primary-dark: #123b73;
-  --accent: #2ec4b6;
-  --bg: #f4f7fb;
-  --card-bg: #ffffff;
-  --text: #1a1a1a;
-  --muted: #6b7280;
-  --border: #e2e8f0;
-  --success: #1f9d55;
-  --danger: #d64545;
+  --blue: #1e5aa8;
+  --blue-dark: #12396e;
+  --sky: #38bdf8;
+  --sky-light: #e0f4ff;
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --white: #ffffff;
+  --bg: #f3f9fd;
+  --text: #10233d;
+  --muted: #5b6b80;
+  --border: #d6e4f0;
+  --danger: #c2410c;
+  --danger-light: #fff1e6;
+  --radius: 14px;
+  --shadow: 0 6px 24px rgba(18, 57, 110, 0.08);
 }
 
 * {
@@ -16,176 +23,137 @@
 }
 
 body {
-  font-family: system-ui, sans-serif;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 1rem 3rem;
+  margin: 0;
+  font-family: "Rubik", system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
+  line-height: 1.5;
+}
+
+main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 1rem 4rem;
+}
+
+a {
+  color: var(--blue);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--blue-dark);
+  line-height: 1.2;
+}
+
+/* --- header ---------------------------------------------------------------- */
+
+.site-header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--blue-dark);
+  text-decoration: none;
+}
+
+.brand span {
+  color: var(--green);
 }
 
 nav {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  margin: 0 -1rem 2rem;
-  padding: 1rem 1.5rem;
-  border-radius: 0 0 12px 12px;
   display: flex;
-  align-items: center;
-  gap: 1.5rem;
+  gap: 0.25rem;
 }
 
 nav a {
-  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 500;
   text-decoration: none;
-  color: #ffffff;
-  opacity: 0.85;
-  transition: opacity 0.15s ease;
 }
 
 nav a:hover {
-  opacity: 1;
-  text-decoration: underline;
-}
-
-h1 {
-  color: var(--primary-dark);
-}
-
-.card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem 1.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  margin-bottom: 1.5rem;
-}
-
-.hero {
-  background: linear-gradient(135deg, var(--accent), var(--primary));
-  color: #ffffff;
-  border-radius: 12px;
-  padding: 2rem 1.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.hero h1 {
-  color: #ffffff;
-  margin-top: 0;
-}
-
-.hero p {
-  opacity: 0.9;
-  margin-bottom: 0;
-}
-
-form label {
-  display: block;
-  margin-bottom: 1rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-form input, form select {
-  display: block;
-  width: 100%;
-  margin-top: 0.3rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: inherit;
-}
-
-form input:focus, form select:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.btn {
-  display: inline-block;
-  background: var(--primary);
-  color: #ffffff;
-  border: none;
-  padding: 0.6rem 1.3rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.btn:hover {
-  background: var(--primary-dark);
-}
-
-.btn-accent {
-  background: var(--accent);
-}
-
-.btn-accent:hover {
-  background: #229c90;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1rem 0;
-  background: var(--card-bg);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-th, td {
-  border-bottom: 1px solid var(--border);
-  padding: 0.55rem 0.75rem;
-  text-align: left;
-  font-size: 0.9rem;
-}
-
-th {
-  background: var(--primary);
-  color: #ffffff;
-  font-weight: 600;
-}
-
-tbody tr:nth-child(even) {
-  background: #f8fafc;
-}
-
-tbody tr:hover {
-  background: #eef4fc;
-}
-
-.tag {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.tag-yes {
-  background: #e3f8ec;
-  color: var(--success);
-}
-
-.tag-no {
-  background: #fbe9e9;
-  color: var(--danger);
-}
-
-.tag-missing {
-  background: #fff4e0;
-  color: #a16207;
-  margin-right: 0.25rem;
+  background: var(--sky-light);
+  color: var(--blue);
 }
 
 /* React Router marks the current page's menu link with class="active". */
 nav a.active {
-  opacity: 1;
-  text-decoration: underline;
+  background: var(--blue);
+  color: var(--white);
+}
+
+/* --- hero ------------------------------------------------------------------ */
+
+.hero {
+  margin: 1.5rem 0;
+  padding: 2.75rem 2rem;
+  border-radius: calc(var(--radius) * 1.5);
+  background: linear-gradient(120deg, var(--blue) 0%, var(--sky) 65%, var(--green) 130%);
+  color: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.hero h1 {
+  margin: 0 0 0.5rem;
+  color: var(--white);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 800;
+}
+
+.hero p {
+  margin: 0;
+  font-size: 1.15rem;
+  opacity: 0.95;
+}
+
+/* --- cards and buttons --------------------------------------------------------- */
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1.4rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--blue);
+  color: var(--white);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--blue-dark);
 }
 
 .btn:disabled {
@@ -193,40 +161,224 @@ nav a.active {
   cursor: wait;
 }
 
+.btn-go {
+  background: var(--green);
+  font-size: 1.1rem;
+  padding: 0.85rem 2.2rem;
+}
+
+.btn-go:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+/* A row of options where one is chosen: search mode, currency, hotel tier. */
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.segmented button {
+  flex: 1 1 0;
+  min-width: 6rem;
+  padding: 0.65rem 0.9rem;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.segmented button:hover {
+  border-color: var(--sky);
+}
+
+.segmented button[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: var(--sky-light);
+  color: var(--blue-dark);
+  font-weight: 600;
+}
+
+.segmented small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* --- the search form ------------------------------------------------------------ */
+
+.mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.mode-tabs button {
+  flex: 1;
+  padding: 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--sky-light);
+  color: var(--blue-dark);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-tabs button small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mode-tabs button[aria-pressed="true"] {
+  background: var(--blue);
+  color: var(--white);
+}
+
+.mode-tabs button[aria-pressed="true"] small {
+  color: var(--sky-light);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.1rem 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field > span,
+.field legend {
+  font-weight: 600;
+  color: var(--blue-dark);
+}
+
+fieldset.field {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  font: inherit;
+  color: var(--text);
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--sky);
+  box-shadow: 0 0 0 4px var(--sky-light);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chips button {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--sky);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--blue);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.chips button:hover,
+.chips button[aria-pressed="true"] {
+  background: var(--sky);
+  color: var(--white);
+}
+
+.nights-badge {
+  display: inline-block;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  background: var(--green-light);
+  color: var(--green);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* The amount and the currencies share a row, and wrap onto two on a phone. */
+.budget-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.budget-row input[type="number"] {
+  flex: 1 1 160px;
+}
+
+.budget-row .segmented {
+  flex: 1 1 280px;
+}
+
+.field input[type="range"] {
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  accent-color: var(--green);
+}
+
+.form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* --- messages and tags ----------------------------------------------------------- */
+
 .error {
-  background: #fbe9e9;
+  background: var(--danger-light);
   border: 1px solid var(--danger);
   color: var(--danger);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
 }
 
 .error ul {
   margin: 0;
-  padding-left: 1.2rem;
+  padding-inline-start: 1.2rem;
 }
 
-.tier-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin: 1rem 0;
-}
-
-.tier-tabs button {
-  background: var(--card-bg);
-  color: var(--primary);
-  border: 1px solid var(--primary);
-}
-
-.tier-tabs button[aria-pressed="true"] {
-  background: var(--primary);
-  color: #ffffff;
-}
-
-.tag-fresh {
-  background: #e8f0fb;
-  color: var(--primary-dark);
+.note {
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .updating {
@@ -234,9 +386,90 @@ nav a.active {
   font-style: italic;
 }
 
-/* The flexible-dates grid scrolls sideways on a narrow screen instead of squeezing. */
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tag-yes,
+.tag-fresh {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.tag-no {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.tag-missing {
+  background: #fff4d6;
+  color: #92600a;
+}
+
+/* --- tables ------------------------------------------------------------------- */
+
+/* Wide tables scroll sideways on a narrow screen instead of squeezing. */
+.table-scroll,
 .grid-scroll {
   overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  background: var(--white);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 0.85rem;
+  text-align: start;
+  font-size: 0.95rem;
+}
+
+th {
+  background: var(--blue);
+  color: var(--white);
+  font-weight: 600;
+}
+
+tbody tr:nth-child(even) {
+  background: #f7fbfe;
+}
+
+tbody tr:hover {
+  background: var(--sky-light);
+}
+
+.total {
+  font-weight: 700;
+  color: var(--green);
+  font-size: 1.05rem;
+}
+
+/* --- destination view and its date grid ------------------------------------------- */
+
+.trip-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.5rem;
+  align-items: baseline;
+}
+
+.trip-summary .big {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--green);
 }
 
 .date-grid th,
@@ -258,20 +491,36 @@ nav a.active {
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
-  padding: 0.35rem 0.2rem;
+  padding: 0.4rem 0.2rem;
 }
 
 .date-grid td.requested {
-  outline: 3px solid var(--primary-dark);
+  outline: 3px solid var(--blue-dark);
   outline-offset: -3px;
 }
 
 .date-grid td.impossible {
-  background: #eef0f3;
+  background: #eef2f6;
 }
 
 /* The tables' zebra and hover colors would hide the price colors. */
 .date-grid tbody tr:nth-child(even),
 .date-grid tbody tr:hover {
   background: transparent;
+}
+
+/* --- phones ---------------------------------------------------------------------- */
+
+@media (max-width: 600px) {
+  .hero {
+    padding: 2rem 1.25rem;
+  }
+
+  .mode-tabs {
+    flex-direction: column;
+  }
+
+  .form-actions .btn-go {
+    width: 100%;
+  }
 }

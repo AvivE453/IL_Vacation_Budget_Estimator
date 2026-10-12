@@ -17,11 +17,14 @@ def load_countries(cur):
     for row in rows:
         cur.execute(
             """
-            INSERT INTO countries (country_code, country_name)
-            VALUES (%s, %s)
-            ON CONFLICT (country_code) DO UPDATE SET country_name = EXCLUDED.country_name
+            INSERT INTO countries (country_code, country_name, country_name_he)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (country_code) DO UPDATE SET
+                country_name = EXCLUDED.country_name,
+                country_name_he = EXCLUDED.country_name_he
             """,
-            (row["country_code"], row["country_name"]),
+            # An empty cell is no Hebrew name (NULL, so the frontend shows the English one), not "".
+            (row["country_code"], row["country_name"], row["country_name_he"] or None),
         )
     return len(rows)
 

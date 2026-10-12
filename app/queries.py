@@ -178,7 +178,7 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers):
         ),
         scored AS (
             SELECT
-                d.destination_id, d.city_name,
+                d.destination_id, d.city_name, d.city_name_he,
                 t.hotel_tier,
                 lf.flight_total_usd,
                 lf.flight_out_date,
@@ -340,7 +340,7 @@ def get_search(cur, search_query_id, session_id):
 def get_search_results(cur, search_query_id, session_id):
     cur.execute(
         """
-        SELECT sr.destination_id, d.city_name, sr.estimated_total_usd, sr.within_budget,
+        SELECT sr.destination_id, d.city_name, d.city_name_he, sr.estimated_total_usd, sr.within_budget,
                sq.budget_currency, sq.hotel_tier, sq.exact_dates_only, al.airline_name, sr.airline_code,
                RANK() OVER (ORDER BY sr.estimated_total_usd ASC) AS cost_rank
         FROM search_results AS sr
@@ -359,7 +359,7 @@ def get_search_results(cur, search_query_id, session_id):
 def list_active_destinations(cur):
     cur.execute(
         """
-        SELECT d.destination_id, d.city_name, c.country_name, d.iata_code
+        SELECT d.destination_id, d.city_name, c.country_name, d.city_name_he, c.country_name_he, d.iata_code
         FROM destinations AS d
         JOIN countries AS c ON c.country_code = d.country_code
         WHERE d.is_active
@@ -374,7 +374,7 @@ def list_active_destinations(cur):
 def get_destination(cur, destination_id):
     cur.execute(
         """
-        SELECT d.destination_id, d.city_name, c.country_name, d.iata_code,
+        SELECT d.destination_id, d.city_name, c.country_name, d.city_name_he, c.country_name_he, d.iata_code,
                hp.avg_price_budget_tier_usd AS hotel_budget_per_night_usd,
                hp.avg_price_per_night_usd AS hotel_average_per_night_usd,
                hp.avg_price_luxury_tier_usd AS hotel_luxury_per_night_usd,
@@ -493,7 +493,7 @@ def get_data_quality_report(cur):
     cur.execute(
         """
         SELECT
-            d.city_name, c.country_name,
+            d.city_name, c.country_name, d.city_name_he, c.country_name_he,
             (SELECT COUNT(*)
              FROM flight_price_observations AS f
              WHERE f.destination_id = d.destination_id) AS flight_obs_count,
@@ -505,7 +505,8 @@ def get_data_quality_report(cur):
         JOIN countries AS c ON c.country_code = d.country_code
         LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
         WHERE d.is_active
-        ORDER BY d.city_name ASC
+        -- In the order the Hebrew page shows them; Unicode puts Hebrew letters in alphabetical order.
+        ORDER BY COALESCE(d.city_name_he, d.city_name)
         """
     )
     return cur.fetchall()

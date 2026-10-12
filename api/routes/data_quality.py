@@ -12,6 +12,8 @@ router = APIRouter()
 class DestinationCoverage(BaseModel):
     city_name: str
     country_name: str
+    city_name_he: str | None = Field(description="Hebrew name; null when the seed has none (show city_name)")
+    country_name_he: str | None = Field(description="Hebrew name; null when the seed has none (show country_name)")
     flight_obs_count: int
     hotel_sample_size: int | None = Field(description="null when the city has no hotel price on file")
     hotel_price_age_days: int | None = Field(description="null when the city has no hotel price on file")

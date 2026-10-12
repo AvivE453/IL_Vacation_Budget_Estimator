@@ -1,7 +1,5 @@
 import type { Schemas } from "../api/client";
-import { addDays, money, shortDate } from "../format";
-
-type HotelTier = Schemas["EstimateRequest"]["hotel_tier"] & string;
+import { addDays, formatDate, type HotelTier, money, nights, shortDate, TIER_NAMES } from "../format";
 
 type Props = {
   grid: Schemas["DateGrid"];
@@ -35,20 +33,18 @@ export default function DateGrid({ grid, departDate, returnDate, tier, onPick }:
   const possiblePairs = departDates.flatMap((d) => returnDates.filter((r) => r > d)).length;
 
   return (
-    <section>
-      <h2>Flexible dates</h2>
-      <p>
-        <small>
-          Round-trip flight prices in {grid.currency}, for dates up to {grid.days} days either side of your search
-          (hover a cell for the total with {tier} hotels). Prices on file for {grid.cells.length} of {possiblePairs}{" "}
-          date pairs; an empty cell has no collected price. Pick a cell to see that trip.
-        </small>
+    <section className="card">
+      <h2>תאריכים גמישים</h2>
+      <p className="note">
+        מחיר הטיסה הלוך-חזור, עד {grid.days} ימים לפני ואחרי התאריכים שבחרתם. ירוק הוא הזול ביותר, ומעבר עם העכבר
+        מראה את הסך עם מלון {TIER_NAMES[tier]}. יש לנו מחירים ל-{grid.cells.length} מתוך {possiblePairs} צירופי
+        תאריכים; תא ריק הוא צירוף שאין לו מחיר שנאסף. לחיצה על תא מציגה את הטיול הזה.
       </p>
       <div className="grid-scroll">
         <table className="date-grid">
           <thead>
             <tr>
-              <th>Depart \ Return</th>
+              <th>יציאה \ חזרה</th>
               {returnDates.map((r) => (
                 <th key={r}>{shortDate(r)}</th>
               ))}
@@ -74,16 +70,18 @@ export default function DateGrid({ grid, departDate, returnDate, tier, onPick }:
                   }
                   const total = cell.total_amount[tier];
                   const totalNote =
-                    total === null ? `no ${tier} hotel price` : `${money(total)} with ${tier} hotels`;
+                    total === null
+                      ? `אין מחיר למלון ${TIER_NAMES[tier]}`
+                      : `${money(total, grid.currency)} עם מלון ${TIER_NAMES[tier]}`;
                   return (
                     <td key={r} className={className} style={{ background: color(cell.flight_amount) }}>
                       <button
                         type="button"
                         onClick={() => onPick(d, r)}
-                        title={`${cell.nights} nights: ${totalNote}`}
-                        aria-label={`Depart ${d}, return ${r}: flight ${money(cell.flight_amount)} ${grid.currency}, ${cell.nights} nights, ${totalNote}`}
+                        title={`${nights(cell.nights)}: ${totalNote}`}
+                        aria-label={`יציאה ${formatDate(d)}, חזרה ${formatDate(r)}: טיסה ${money(cell.flight_amount, grid.currency)}, ${nights(cell.nights)}, ${totalNote}`}
                       >
-                        {Math.round(cell.flight_amount)}
+                        {Math.round(cell.flight_amount).toLocaleString("en-US")}
                       </button>
                     </td>
                   );

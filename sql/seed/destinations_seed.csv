@@ -1,104 +1,104 @@
-city_name,country_code,iata_code,hotel_data_city_key
-Barcelona,ES,BCN,barcelona
-Madrid,ES,MAD,madrid
-Rome,IT,FCO,rome
-Milan,IT,MXP,milan
-Athens,GR,ATH,athens
-Thessaloniki,GR,SKG,thessaloniki
-Heraklion,GR,HER,heraklion
-Rhodes,GR,RHO,rhodes
-Larnaca,CY,LCA,larnaca
-Istanbul,TR,IST,istanbul
-Prague,CZ,PRG,prague
-Budapest,HU,BUD,budapest
-Berlin,DE,BER,berlin
-Munich,DE,MUC,munich
-Amsterdam,NL,AMS,amsterdam
-Lisbon,PT,LIS,lisbon
-Vienna,AT,VIE,vienna
-Warsaw,PL,WAW,warsaw
-Sofia,BG,SOF,sofia
-Bucharest,RO,OTP,bucharest
-Zurich,CH,ZRH,zurich
-Copenhagen,DK,CPH,copenhagen
-Tbilisi,GE,TBS,tbilisi
-Batumi,GE,BUS,batumi
-Dubai,AE,DXB,dubai
-Bangkok,TH,BKK,bangkok
-London,GB,LHR,london
-Paris,FR,CDG,paris
-New York,US,JFK,new york
-Tokyo,JP,NRT,tokyo
-Seoul,KR,ICN,seoul
-Boston,US,BOS,boston
-Sydney,AU,SYD,sydney
-Phuket,TH,HKT,phuket
-Rio de Janeiro,BR,GIG,rio de janeiro
-Colombo,LK,CMB,colombo
-Catania,IT,CTA,catania
-Miami,US,MIA,miami
-Nice,FR,NCE,nice
-Paphos,CY,PFO,paphos
-Frankfurt,DE,FRA,frankfurt
-Geneva,CH,GVA,geneva
-Moscow,RU,SVO,moscow
-Mumbai,IN,BOM,mumbai
-Delhi,IN,DEL,delhi
-Baku,AZ,GYD,baku
-Yerevan,AM,EVN,yerevan
-Tashkent,UZ,TAS,tashkent
-Samarkand,UZ,SKD,samarkand
-Almaty,KZ,ALA,almaty
-Chisinau,MD,RMO,chisinau
-Vilnius,LT,VNO,vilnius
-Krakow,PL,KRK,krakow
-Belgrade,RS,BEG,belgrade
-Bratislava,SK,BTS,bratislava
-Riga,LV,RIX,riga
-Tivat,ME,TIV,tivat
-Venice,IT,VCE,venice
-Naples,IT,NAP,naples
-Saint Petersburg,RU,LED,saint petersburg
-Sochi,RU,AER,sochi
-Toronto,CA,YYZ,toronto
-Corfu,GR,CFU,corfu
-Mykonos,GR,JMK,mykonos
-Tirana,AL,TIA,tirana
-Varna,BG,VAR,varna
-Burgas,BG,BOJ,burgas
-Podgorica,ME,TGD,podgorica
-Tallinn,EE,TLL,tallinn
-Palermo,IT,PMO,palermo
-Turin,IT,TRN,turin
-Valencia,ES,VLC,valencia
-Malaga,ES,AGP,malaga
-Porto,PT,OPO,porto
-Funchal,PT,FNC,funchal
-Luxembourg City,LU,LUX,luxembourg city
-Dusseldorf,DE,DUS,dusseldorf
-Oslo,NO,OSL,oslo
-Lyon,FR,LYS,lyon
-Brussels,BE,BRU,brussels
-Stockholm,SE,ARN,stockholm
-Reykjavik,IS,KEF,reykjavik
-Salzburg,AT,SZG,salzburg
-Hong Kong,HK,HKG,hong kong
-Hanoi,VN,HAN,hanoi
-Zanzibar,TZ,ZNZ,zanzibar
-Marrakech,MA,RAK,marrakech
-Cape Town,ZA,CPT,cape town
-Mahe,SC,SEZ,mahe
-Abu Dhabi,AE,AUH,abu dhabi
-Los Angeles,US,LAX,los angeles
-Santorini,GR,JTR,santorini
-Palma de Mallorca,ES,PMI,palma de mallorca
-Tenerife,ES,TFS,tenerife
-Florence,IT,FLR,florence
-Edinburgh,GB,EDI,edinburgh
-Manchester,GB,MAN,manchester
-Basel,CH,BSL,basel
-Dublin,IE,DUB,dublin
-Singapore,SG,SIN,singapore
-Koh Samui,TH,USM,koh samui
-Krabi,TH,KBV,krabi
-Antalya,TR,AYT,antalya
+city_name,country_code,iata_code,hotel_data_city_key,city_name_he
+Barcelona,ES,BCN,barcelona,ברצלונה
+Madrid,ES,MAD,madrid,מדריד
+Rome,IT,FCO,rome,רומא
+Milan,IT,MXP,milan,מילאנו
+Athens,GR,ATH,athens,אתונה
+Thessaloniki,GR,SKG,thessaloniki,סלוניקי
+Heraklion,GR,HER,heraklion,הרקליון
+Rhodes,GR,RHO,rhodes,רודוס
+Larnaca,CY,LCA,larnaca,לרנקה
+Istanbul,TR,IST,istanbul,איסטנבול
+Prague,CZ,PRG,prague,פראג
+Budapest,HU,BUD,budapest,בודפשט
+Berlin,DE,BER,berlin,ברלין
+Munich,DE,MUC,munich,מינכן
+Amsterdam,NL,AMS,amsterdam,אמסטרדם
+Lisbon,PT,LIS,lisbon,ליסבון
+Vienna,AT,VIE,vienna,וינה
+Warsaw,PL,WAW,warsaw,ורשה
+Sofia,BG,SOF,sofia,סופיה
+Bucharest,RO,OTP,bucharest,בוקרשט
+Zurich,CH,ZRH,zurich,ציריך
+Copenhagen,DK,CPH,copenhagen,קופנהגן
+Tbilisi,GE,TBS,tbilisi,טביליסי
+Batumi,GE,BUS,batumi,בטומי
+Dubai,AE,DXB,dubai,דובאי
+Bangkok,TH,BKK,bangkok,בנגקוק
+London,GB,LHR,london,לונדון
+Paris,FR,CDG,paris,פריז
+New York,US,JFK,new york,ניו יורק
+Tokyo,JP,NRT,tokyo,טוקיו
+Seoul,KR,ICN,seoul,סיאול
+Boston,US,BOS,boston,בוסטון
+Sydney,AU,SYD,sydney,סידני
+Phuket,TH,HKT,phuket,פוקט
+Rio de Janeiro,BR,GIG,rio de janeiro,ריו דה ז'ניירו
+Colombo,LK,CMB,colombo,קולומבו
+Catania,IT,CTA,catania,קטניה
+Miami,US,MIA,miami,מיאמי
+Nice,FR,NCE,nice,ניס
+Paphos,CY,PFO,paphos,פאפוס
+Frankfurt,DE,FRA,frankfurt,פרנקפורט
+Geneva,CH,GVA,geneva,ז'נבה
+Moscow,RU,SVO,moscow,מוסקבה
+Mumbai,IN,BOM,mumbai,מומבאי
+Delhi,IN,DEL,delhi,דלהי
+Baku,AZ,GYD,baku,באקו
+Yerevan,AM,EVN,yerevan,ירוואן
+Tashkent,UZ,TAS,tashkent,טשקנט
+Samarkand,UZ,SKD,samarkand,סמרקנד
+Almaty,KZ,ALA,almaty,אלמטי
+Chisinau,MD,RMO,chisinau,קישינב
+Vilnius,LT,VNO,vilnius,וילנה
+Krakow,PL,KRK,krakow,קרקוב
+Belgrade,RS,BEG,belgrade,בלגרד
+Bratislava,SK,BTS,bratislava,ברטיסלבה
+Riga,LV,RIX,riga,ריגה
+Tivat,ME,TIV,tivat,טיבט
+Venice,IT,VCE,venice,ונציה
+Naples,IT,NAP,naples,נאפולי
+Saint Petersburg,RU,LED,saint petersburg,סנקט פטרבורג
+Sochi,RU,AER,sochi,סוצ'י
+Toronto,CA,YYZ,toronto,טורונטו
+Corfu,GR,CFU,corfu,קורפו
+Mykonos,GR,JMK,mykonos,מיקונוס
+Tirana,AL,TIA,tirana,טירנה
+Varna,BG,VAR,varna,ורנה
+Burgas,BG,BOJ,burgas,בורגס
+Podgorica,ME,TGD,podgorica,פודגוריצה
+Tallinn,EE,TLL,tallinn,טאלין
+Palermo,IT,PMO,palermo,פלרמו
+Turin,IT,TRN,turin,טורינו
+Valencia,ES,VLC,valencia,ולנסיה
+Malaga,ES,AGP,malaga,מלאגה
+Porto,PT,OPO,porto,פורטו
+Funchal,PT,FNC,funchal,פונשל
+Luxembourg City,LU,LUX,luxembourg city,לוקסמבורג
+Dusseldorf,DE,DUS,dusseldorf,דיסלדורף
+Oslo,NO,OSL,oslo,אוסלו
+Lyon,FR,LYS,lyon,ליון
+Brussels,BE,BRU,brussels,בריסל
+Stockholm,SE,ARN,stockholm,שטוקהולם
+Reykjavik,IS,KEF,reykjavik,רייקיאוויק
+Salzburg,AT,SZG,salzburg,זלצבורג
+Hong Kong,HK,HKG,hong kong,הונג קונג
+Hanoi,VN,HAN,hanoi,האנוי
+Zanzibar,TZ,ZNZ,zanzibar,זנזיבר
+Marrakech,MA,RAK,marrakech,מרקש
+Cape Town,ZA,CPT,cape town,קייפטאון
+Mahe,SC,SEZ,mahe,מאהה
+Abu Dhabi,AE,AUH,abu dhabi,אבו דאבי
+Los Angeles,US,LAX,los angeles,לוס אנג'לס
+Santorini,GR,JTR,santorini,סנטוריני
+Palma de Mallorca,ES,PMI,palma de mallorca,פלמה דה מיורקה
+Tenerife,ES,TFS,tenerife,טנריף
+Florence,IT,FLR,florence,פירנצה
+Edinburgh,GB,EDI,edinburgh,אדינבורו
+Manchester,GB,MAN,manchester,מנצ'סטר
+Basel,CH,BSL,basel,באזל
+Dublin,IE,DUB,dublin,דבלין
+Singapore,SG,SIN,singapore,סינגפור
+Koh Samui,TH,USM,koh samui,קו סמוי
+Krabi,TH,KBV,krabi,קראבי
+Antalya,TR,AYT,antalya,אנטליה

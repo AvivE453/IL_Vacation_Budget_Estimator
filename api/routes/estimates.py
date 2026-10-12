@@ -37,6 +37,7 @@ class EstimateRequest(BaseModel):
 class DestinationEstimate(BaseModel):
     destination_id: int
     city_name: str
+    city_name_he: str | None = Field(description="Hebrew name; null when the seed has none (show city_name)")
     airline_code: str | None
     airline_name: str | None = Field(description="null when the airline code isn't in our reference table")
     flight_out_date: datetime.date

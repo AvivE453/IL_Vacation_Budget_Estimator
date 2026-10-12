@@ -1,6 +1,19 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { addDays, clock, dateTime, daysAgo, daysSince, duration, nightsBetween, shortDate, todayIso } from "./format";
+import {
+  addDays,
+  clock,
+  dateTime,
+  daysAgo,
+  daysSince,
+  duration,
+  formatDate,
+  money,
+  nights,
+  nightsBetween,
+  shortDate,
+  todayIso,
+} from "./format";
 
 // The tests run in Israel's time zone (vite.config.ts -> test.env.TZ), where
 // the UTC date lags the local one for two or three hours after midnight.
@@ -38,18 +51,25 @@ test("daysSince counts from the local today", () => {
 });
 
 test("daysAgo", () => {
-  expect([daysAgo(null), daysAgo(0), daysAgo(1), daysAgo(12)]).toEqual(["-", "today", "1 day ago", "12 days ago"]);
+  expect([daysAgo(null), daysAgo(0), daysAgo(1), daysAgo(12)]).toEqual(["-", "היום", "אתמול", "לפני 12 ימים"]);
 });
 
-test("shortDate shows the weekday", () => {
-  expect(shortDate("2026-11-07")).toBe("Sat 7 Nov");
+test("dates are written the Israeli way, the short one with its weekday", () => {
+  expect(formatDate("2026-11-07")).toBe("7.11.2026");
+  expect(shortDate("2026-11-07")).toBe("ש׳ 7.11"); // a Saturday
+  expect(shortDate("2026-11-08")).toBe("א׳ 8.11");
 });
 
 test("dateTime is in the local time zone", () => {
-  expect(dateTime("2026-10-12T13:55:12Z")).toBe("2026-10-12 16:55");
+  expect(dateTime("2026-10-12T13:55:12Z")).toBe("12.10.2026 16:55");
 });
 
-test("clock and duration", () => {
+test("money is whole units with the currency's symbol", () => {
+  expect([money(8000, "ILS"), money(1459.62, "USD"), money(745.4, "EUR")]).toEqual(["8,000 ₪", "1,460 $", "745 €"]);
+});
+
+test("nights, clock and duration", () => {
+  expect([nights(1), nights(7)]).toEqual(["לילה אחד", "7 לילות"]);
   expect([clock("18:55:00"), clock(null)]).toEqual(["18:55", "-"]);
-  expect([duration(305), duration(60), duration(null)]).toEqual(["5h 05m", "1h 00m", "-"]);
+  expect([duration(305), duration(60), duration(null)]).toEqual(["5:05 ש׳", "1:00 ש׳", "-"]);
 });

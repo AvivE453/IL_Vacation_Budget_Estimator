@@ -12,12 +12,12 @@ type Props = {
   staleAfter: number;
 };
 
-// "hotel prices 12 days ago", amber once older than staleAfter.
+// "נראה לפני 12 ימים", amber once older than staleAfter.
 export default function AgeTag({ label, days, staleAfter }: Props) {
   const stale = days === null || days > staleAfter;
   return (
     <span className={stale ? "tag tag-missing" : "tag tag-fresh"}>
-      {label} {days === null ? "date unknown" : daysAgo(days)}
+      {label} {days === null ? "בתאריך לא ידוע" : daysAgo(days)}
     </span>
   );
 }

@@ -34,7 +34,7 @@ describe("validationMessages", () => {
     });
 
     expect(validationMessages(error)).toEqual([
-      "budget_amount: Input should be greater than 0",
+      "התקציב: Input should be greater than 0",
       "Value error, return_date must be after depart_date",
     ]);
   });

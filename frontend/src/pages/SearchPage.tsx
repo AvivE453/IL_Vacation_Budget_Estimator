@@ -32,16 +32,16 @@ export default function SearchPage() {
   return (
     <>
       <div className="hero">
-        <h1>IL Vacation Budget</h1>
+        <h1>לאן טסים בתקציב שלך?</h1>
         <p>
-          {destinations.data ? `Tracking ${destinations.data.length} destinations` : "Tracking destinations"},
-          departing from Israel.
+          משווים טיסה ומלון ל-{destinations.data ? destinations.data.length : ""} יעדים ביציאה מישראל, ומוצאים את
+          החופשה שמתאימה לכיס.
         </p>
       </div>
 
-      {(origins.isPending || destinations.isPending) && <p>Loading...</p>}
+      {(origins.isPending || destinations.isPending) && <p>טוען...</p>}
       {(origins.error || destinations.error) && (
-        <p className="error">Could not load the search form: {(origins.error ?? destinations.error)?.message}</p>
+        <p className="error">לא הצלחנו לטעון את טופס החיפוש: {(origins.error ?? destinations.error)?.message}</p>
       )}
       {origins.data && destinations.data && (
         <SearchForm
@@ -71,7 +71,7 @@ export default function SearchPage() {
               ))}
             </ul>
           ) : (
-            `The estimate failed: ${estimate.error.message}`
+            `החיפוש נכשל: ${estimate.error.message}`
           )}
         </div>
       )}

@@ -19,6 +19,8 @@ class Destination(BaseModel):
     destination_id: int
     city_name: str
     country_name: str
+    city_name_he: str | None = Field(description="Hebrew name; null when the seed has none (show city_name)")
+    country_name_he: str | None = Field(description="Hebrew name; null when the seed has none (show country_name)")
     iata_code: str
 
 

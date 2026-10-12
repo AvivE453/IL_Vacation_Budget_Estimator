@@ -1,57 +1,57 @@
-country_code,country_name
-IL,Israel
-ES,Spain
-IT,Italy
-GR,Greece
-CY,Cyprus
-TR,Turkiye
-CZ,Czechia
-HU,Hungary
-DE,Germany
-NL,Netherlands
-PT,Portugal
-AT,Austria
-PL,Poland
-BG,Bulgaria
-RO,Romania
-CH,Switzerland
-DK,Denmark
-GE,Georgia
-AE,United Arab Emirates
-TH,Thailand
-GB,United Kingdom
-FR,France
-US,United States
-JP,Japan
-KR,South Korea
-AU,Australia
-BR,Brazil
-LK,Sri Lanka
-RU,Russia
-IN,India
-AL,Albania
-AM,Armenia
-AZ,Azerbaijan
-BE,Belgium
-CA,Canada
-EE,Estonia
-HK,Hong Kong
-IE,Ireland
-IS,Iceland
-KZ,Kazakhstan
-LT,Lithuania
-LU,Luxembourg
-LV,Latvia
-MA,Morocco
-MD,Moldova
-ME,Montenegro
-NO,Norway
-RS,Serbia
-SC,Seychelles
-SE,Sweden
-SG,Singapore
-SK,Slovakia
-TZ,Tanzania
-UZ,Uzbekistan
-VN,Vietnam
-ZA,South Africa
+country_code,country_name,country_name_he
+IL,Israel,ישראל
+ES,Spain,ספרד
+IT,Italy,איטליה
+GR,Greece,יוון
+CY,Cyprus,קפריסין
+TR,Turkiye,טורקיה
+CZ,Czechia,צ'כיה
+HU,Hungary,הונגריה
+DE,Germany,גרמניה
+NL,Netherlands,הולנד
+PT,Portugal,פורטוגל
+AT,Austria,אוסטריה
+PL,Poland,פולין
+BG,Bulgaria,בולגריה
+RO,Romania,רומניה
+CH,Switzerland,שווייץ
+DK,Denmark,דנמרק
+GE,Georgia,גאורגיה
+AE,United Arab Emirates,איחוד האמירויות
+TH,Thailand,תאילנד
+GB,United Kingdom,בריטניה
+FR,France,צרפת
+US,United States,ארצות הברית
+JP,Japan,יפן
+KR,South Korea,דרום קוריאה
+AU,Australia,אוסטרליה
+BR,Brazil,ברזיל
+LK,Sri Lanka,סרי לנקה
+RU,Russia,רוסיה
+IN,India,הודו
+AL,Albania,אלבניה
+AM,Armenia,ארמניה
+AZ,Azerbaijan,אזרבייג'ן
+BE,Belgium,בלגיה
+CA,Canada,קנדה
+EE,Estonia,אסטוניה
+HK,Hong Kong,הונג קונג
+IE,Ireland,אירלנד
+IS,Iceland,איסלנד
+KZ,Kazakhstan,קזחסטן
+LT,Lithuania,ליטא
+LU,Luxembourg,לוקסמבורג
+LV,Latvia,לטביה
+MA,Morocco,מרוקו
+MD,Moldova,מולדובה
+ME,Montenegro,מונטנגרו
+NO,Norway,נורווגיה
+RS,Serbia,סרביה
+SC,Seychelles,סיישל
+SE,Sweden,שוודיה
+SG,Singapore,סינגפור
+SK,Slovakia,סלובקיה
+TZ,Tanzania,טנזניה
+UZ,Uzbekistan,אוזבקיסטן
+VN,Vietnam,וייטנאם
+ZA,South Africa,דרום אפריקה
