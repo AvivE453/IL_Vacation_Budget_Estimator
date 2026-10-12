@@ -6,11 +6,6 @@ import psycopg2.extras
 # exact match. beyond that, it's treated as missing data.
 MAX_DATE_DRIFT_DAYS = 4
 
-# A quote stays in that cache for about a week. A flight's price seen more
-# than this many days before the newest price for the same trip has most
-# likely left it - it's no longer a price anyone can get.
-FRESHNESS_DAYS = 7
-
 # A destination's date grid spans this many days either side of the requested
 # departure and return dates: 7 x 7 date pairs.
 DATE_GRID_DAYS = 3
@@ -23,11 +18,13 @@ DATE_GRID_DAYS = 3
 #      most recently - an older price for the same flight is outdated. Those
 #      four don't pin down one offer (the same times can come with another
 #      connection or fare), so on the same seen-on day the cheapest wins;
-#   2. only flights whose price was seen within FRESHNESS_DAYS of the newest
-#      price for the same trip. Measured from that newest price, not from
-#      today: the collector runs by hand, so a quiet fortnight would
-#      otherwise empty every result. An old price drops out only when the
-#      same trip has a price more than FRESHNESS_DAYS newer.
+#   2. only the flights seen on the newest seen-on day for the same trip -
+#      the newer price wins even when pricier. The collector gets only the
+#      cheapest flight per date pair, so a newer, pricier one there most
+#      likely means the cheaper one is gone (decided 2026-10-12: newer over
+#      cheaper). Measured from that newest price, not from today: the
+#      collector runs by hand, so a quiet fortnight must not empty every
+#      result.
 # Callers then pick the nearest dates and, among those, the cheapest.
 _FRESH_FLIGHTS_CTES = """
     flight_candidates AS (
@@ -58,7 +55,7 @@ _FRESH_FLIGHTS_CTES = """
     fresh_flights AS (
         SELECT *
         FROM latest_per_flight
-        WHERE seen_on >= trip_newest_seen_on - %(freshness_days)s
+        WHERE seen_on = trip_newest_seen_on
     )
 """
 
@@ -69,7 +66,6 @@ def _fresh_flights_params(origin_iata, depart_date, return_date):
         "depart_date": depart_date,
         "return_date": return_date,
         "max_drift": MAX_DATE_DRIFT_DAYS,
-        "freshness_days": FRESHNESS_DAYS,
     }
 
 

@@ -1,7 +1,7 @@
 import { daysAgo } from "../format";
 
-// How old the flight cache's quotes get before they drop out (FRESHNESS_DAYS
-// in app/queries.py), and how old a hotel snapshot can be before it's worth
+// How old the flight cache's quotes get before they drop out (about a week,
+// measured 2026-10-12), and how old a hotel snapshot can be before it's worth
 // re-collecting.
 export const FLIGHT_STALE_AFTER_DAYS = 7;
 export const HOTEL_STALE_AFTER_DAYS = 30;

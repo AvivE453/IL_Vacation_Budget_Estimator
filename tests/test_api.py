@@ -516,6 +516,9 @@ def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=280, airline_code="IZ",
                price_seen_on=datetime.date(2030, 5, 3))
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=250, airline_code="W4", number_of_stops=1,
+               price_seen_on=datetime.date(2030, 5, 3))
+    # Cheapest, but seen before the newest price for these dates: not an option.
+    add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=200, airline_code="U2",
                price_seen_on=datetime.date(2030, 5, 2))
     # Farther from the request, so not the pair shown.
     add_flight(cur, "BCN", DEPART + datetime.timedelta(days=3), RETURN, price_usd=100)
