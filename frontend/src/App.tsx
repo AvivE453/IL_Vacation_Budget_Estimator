@@ -4,6 +4,7 @@ import Layout from "./Layout";
 import DataQualityPage from "./pages/DataQualityPage";
 import HistoryPage from "./pages/HistoryPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import SavedSearchPage from "./pages/SavedSearchPage";
 import SearchPage from "./pages/SearchPage";
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<SearchPage />} />
         <Route path="history" element={<HistoryPage />} />
+        <Route path="history/:searchId" element={<SavedSearchPage />} />
         <Route path="data-quality" element={<DataQualityPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

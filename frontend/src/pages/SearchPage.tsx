@@ -1,13 +1,66 @@
-import OriginsList from "../components/OriginsList";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-// The search form arrives in 3.2.2; for now the page shows the departure
-// airports the form's dropdown will offer.
+import { api, type Schemas, unwrap, validationMessages } from "../api/client";
+import EstimateResults from "../components/EstimateResults";
+import SearchForm from "../components/SearchForm";
+
+// The form and its results on one page: the results replace Flask's separate
+// results page, and the form stays above them for the next search.
 export default function SearchPage() {
+  const queryClient = useQueryClient();
+  const origins = useQuery({
+    queryKey: ["origins"],
+    queryFn: () => unwrap(api.GET("/api/v1/origins")),
+  });
+  const destinations = useQuery({
+    queryKey: ["destinations"],
+    queryFn: () => unwrap(api.GET("/api/v1/destinations")),
+  });
+
+  // A mutation, not a query: it runs only when the form is submitted, and it
+  // writes - every estimate is saved to this browser's history.
+  const estimate = useMutation({
+    mutationFn: (request: Schemas["EstimateRequest"]) => unwrap(api.POST("/api/v1/estimates", { body: request })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["searches"] }),
+  });
+
+  const errors = validationMessages(estimate.error);
+
   return (
     <>
-      <h2>Search</h2>
-      <h3>Departure airports</h3>
-      <OriginsList />
+      <div className="hero">
+        <h1>IL Vacation Budget</h1>
+        <p>
+          {destinations.data ? `Tracking ${destinations.data.length} destinations` : "Tracking destinations"},
+          departing from Israel.
+        </p>
+      </div>
+
+      {origins.isPending && <p>Loading...</p>}
+      {origins.error && <p className="error">Could not load the search form: {origins.error.message}</p>}
+      {origins.data && (
+        <SearchForm origins={origins.data} isSubmitting={estimate.isPending} onSubmit={estimate.mutate} />
+      )}
+
+      {estimate.error && (
+        <div className="error">
+          {errors.length > 0 ? (
+            <ul>
+              {errors.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          ) : (
+            `The estimate failed: ${estimate.error.message}`
+          )}
+        </div>
+      )}
+
+      {/* A new key per search: React builds a fresh EstimateResults, so the
+          tier picked for the last search doesn't carry over to this one. */}
+      {estimate.data && (
+        <EstimateResults key={estimate.data.search_id} request={estimate.variables} response={estimate.data} />
+      )}
     </>
   );
 }

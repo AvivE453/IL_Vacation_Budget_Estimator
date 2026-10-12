@@ -1,0 +1,225 @@
+:root {
+  --primary: #1a5fb4;
+  --primary-dark: #123b73;
+  --accent: #2ec4b6;
+  --bg: #f4f7fb;
+  --card-bg: #ffffff;
+  --text: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e2e8f0;
+  --success: #1f9d55;
+  --danger: #d64545;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+  color: var(--text);
+  background: var(--bg);
+}
+
+nav {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  margin: 0 -1rem 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+nav a {
+  font-weight: 600;
+  text-decoration: none;
+  color: #ffffff;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+nav a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+h1 {
+  color: var(--primary-dark);
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+}
+
+.hero {
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 2rem 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero h1 {
+  color: #ffffff;
+  margin-top: 0;
+}
+
+.hero p {
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+form label {
+  display: block;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+form input, form select {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+form input:focus, form select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn {
+  display: inline-block;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.3rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--primary-dark);
+}
+
+.btn-accent {
+  background: var(--accent);
+}
+
+.btn-accent:hover {
+  background: #229c90;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  background: var(--card-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+th, td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+th {
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+tbody tr:hover {
+  background: #eef4fc;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tag-yes {
+  background: #e3f8ec;
+  color: var(--success);
+}
+
+.tag-no {
+  background: #fbe9e9;
+  color: var(--danger);
+}
+
+.tag-missing {
+  background: #fff4e0;
+  color: #a16207;
+  margin-right: 0.25rem;
+}
+
+/* React Router marks the current page's menu link with class="active". */
+nav a.active {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.error {
+  background: #fbe9e9;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.error ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.tier-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.tier-tabs button {
+  background: var(--card-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.tier-tabs button[aria-pressed="true"] {
+  background: var(--primary);
+  color: #ffffff;
+}
