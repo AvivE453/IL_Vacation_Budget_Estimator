@@ -67,7 +67,22 @@ the seed CSVs; each test then inserts exactly the flights, hotels and searches i
 and is rolled back afterwards. They need the Postgres server from step 1 running
 (locally the DB tests skip without it; in CI that's a failure).
 
+The React frontend has two more layers of tests, run from `frontend/`:
+
+```
+npm test         # component tests: Vitest + Testing Library, the API answered by MSW
+npx playwright test   # end-to-end: Chrome against Vite + FastAPI + Postgres
+```
+
+The component tests render the whole app in a simulated browser (jsdom) and click
+through it like a user; their API answers are typed by the generated schema, so a
+changed API breaks them at compile time. The end-to-end tests start their own API
+(`uv run python -m tests.e2e_server`) on a separate `vacation_budget_e2e` database
+rebuilt with fixed data ([tests/e2e_data.py](tests/e2e_data.py)), with live flight
+search switched off (`LIVE_FLIGHT_SEARCH=off`), so every run sees the same prices.
+
 CI ([GitHub Actions](.github/workflows/ci.yml)) runs on every push: `uv sync --locked`,
 ruff, the migrations and seed loaders on a fresh Postgres, then the test suite. A second
 job checks the frontend: `npm ci`, regenerates `frontend/src/api/schema.d.ts` and fails if
-it differs from the committed one, then type-checks and builds (`npm run build`).
+it differs from the committed one, runs the component tests, then type-checks and builds
+(`npm run build`). A third runs the end-to-end tests on a fresh Postgres.

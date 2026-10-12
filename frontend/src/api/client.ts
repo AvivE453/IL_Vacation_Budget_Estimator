@@ -4,7 +4,10 @@ import type { components, paths } from "./schema";
 
 // Typed fetch for our API: each call's path, parameters and response come
 // from schema.d.ts, which `npm run gen:api` generates from api/openapi.json.
-export const api = createClient<paths>();
+// The page's own origin, spelled out: the browser would resolve "/api/..."
+// against it anyway, but openapi-fetch builds a Request first, and outside a
+// browser (the component tests) a Request needs a full URL.
+export const api = createClient<paths>({ baseUrl: window.location.origin });
 
 export type Schemas = components["schemas"];
 
