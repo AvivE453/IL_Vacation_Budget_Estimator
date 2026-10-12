@@ -7,6 +7,7 @@ from app.queries import (
     count_active_destinations,
     get_collection_volume,
     get_data_quality_report,
+    get_date_grid,
     list_origin_airports,
 )
 from tests.factories import add_flight, add_hotel
@@ -66,4 +67,27 @@ def test_collection_volume_groups_by_observation_day(cur):
     assert [(r["day"], r["observations_collected"]) for r in rows] == [
         (day1.date(), 2),
         (day2.date(), 1),
+    ]
+
+
+def barcelona_id(cur):
+    cur.execute("SELECT destination_id FROM destinations WHERE iata_code = 'BCN'")
+    return cur.fetchone()["destination_id"]
+
+
+def test_date_grid_uses_the_rankings_freshness_rule(cur):
+    # The same flight seen twice: only its latest price counts, even though cheaper.
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=200, airline_code="IZ", price_seen_on=datetime.date(2030, 5, 1))
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=260, airline_code="IZ", price_seen_on=datetime.date(2030, 5, 3))
+    # Another flight on the same trip, seen more than FRESHNESS_DAYS before the newest price: gone from the cache.
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", price_seen_on=datetime.date(2030, 4, 20))
+    # A different date pair keeps its own newest price.
+    add_flight(cur, "BCN", DEPART, RETURN - datetime.timedelta(days=1), price_usd=180,
+               price_seen_on=datetime.date(2030, 4, 1))
+
+    rows = get_date_grid(cur, "TLV", barcelona_id(cur), DEPART, RETURN)
+
+    assert [(r["depart_date"], r["return_date"], float(r["flight_price_usd"])) for r in rows] == [
+        (DEPART, RETURN - datetime.timedelta(days=1), 180.0),
+        (DEPART, RETURN, 260.0),
     ]

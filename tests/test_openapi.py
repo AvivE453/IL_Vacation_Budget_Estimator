@@ -25,6 +25,7 @@ def test_operation_ids_are_the_route_function_names():
         "get_saved_search",
         "destinations",
         "destination_trip",
+        "destination_date_grid",
     }
 
 
@@ -36,3 +37,4 @@ def test_errors_the_routes_raise_are_documented():
             assert "503" in operation["responses"]
     assert "404" in paths["/api/v1/searches/{search_id}"]["get"]["responses"]
     assert "404" in paths["/api/v1/destinations/{destination_id}/trip"]["get"]["responses"]
+    assert "404" in paths["/api/v1/destinations/{destination_id}/date-grid"]["get"]["responses"]

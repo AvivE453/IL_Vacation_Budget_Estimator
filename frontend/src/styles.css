@@ -223,3 +223,55 @@ nav a.active {
   background: var(--primary);
   color: #ffffff;
 }
+
+.tag-fresh {
+  background: #e8f0fb;
+  color: var(--primary-dark);
+}
+
+.updating {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* The flexible-dates grid scrolls sideways on a narrow screen instead of squeezing. */
+.grid-scroll {
+  overflow-x: auto;
+}
+
+.date-grid th,
+.date-grid td {
+  text-align: center;
+  white-space: nowrap;
+  padding: 0.3rem 0.4rem;
+}
+
+.date-grid td {
+  color: var(--muted);
+}
+
+.date-grid td button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.35rem 0.2rem;
+}
+
+.date-grid td.requested {
+  outline: 3px solid var(--primary-dark);
+  outline-offset: -3px;
+}
+
+.date-grid td.impossible {
+  background: #eef0f3;
+}
+
+/* The tables' zebra and hover colors would hide the price colors. */
+.date-grid tbody tr:nth-child(even),
+.date-grid tbody tr:hover {
+  background: transparent;
+}

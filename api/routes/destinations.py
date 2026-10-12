@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 from api.deps import Cursor
 from api.errors import NOT_FOUND
 from api.routes.estimates import Currency, require_known_origin
-from app.queries import get_destination, list_active_destinations
+from app.queries import DATE_GRID_DAYS, HOTEL_TIERS, get_date_grid, get_destination, list_active_destinations
 from app.search import display_currency_and_rate
 from app.trip import trip_options
 from etl.common.currency import from_usd
@@ -90,11 +90,7 @@ class Trip(BaseModel):
 # nothing, falls back to the collected data (see app/trip.py).
 @router.get("/destinations/{destination_id}/trip", responses=NOT_FOUND)
 def destination_trip(destination_id: int, query: Annotated[TripQuery, Query()], cur: Cursor) -> Trip:
-    require_known_origin(cur, query.origin_iata, location="query")
-    destination = get_destination(cur, destination_id)
-    if destination is None:
-        raise HTTPException(status_code=404, detail="Destination not found")
-
+    destination = known_destination(cur, destination_id, query.origin_iata)
     trip = trip_options(cur, query.origin_iata, destination, query.depart_date, query.return_date)
     currency, usd_per_unit = display_currency_and_rate(cur, query.currency)
 
@@ -122,3 +118,65 @@ def destination_trip(destination_id: int, query: Annotated[TripQuery, Query()], 
             **{tier: tier_price(per_night) for tier, per_night in trip.hotel_per_night_usd.items()},
         ),
     )
+
+
+class TierTotals(BaseModel):
+    budget: float | None
+    average: float | None
+    luxury: float | None
+
+
+class DateGridCell(BaseModel):
+    depart_date: datetime.date
+    return_date: datetime.date
+    nights: int
+    flight_amount: float = Field(description="The cheapest round trip on file for these exact dates")
+    total_amount: TierTotals = Field(
+        description="Flight + hotel for these nights, per hotel tier; null when the tier has no hotel price"
+    )
+
+
+class DateGrid(BaseModel):
+    currency: str = Field(description="Every amount is in this currency: the one requested, or USD if it has no rate")
+    days: int = Field(description="The grid spans this many days either side of the requested dates")
+    cells: list[DateGridCell] = Field(
+        description="Only the date pairs with a flight on file - an absent pair is missing data"
+    )
+
+
+# Collected prices for every date pair near the requested one, so a flexible
+# traveler can see which dates are cheaper. Collected data only - no live
+# call, which would be one per cell.
+@router.get("/destinations/{destination_id}/date-grid", responses=NOT_FOUND)
+def destination_date_grid(destination_id: int, query: Annotated[TripQuery, Query()], cur: Cursor) -> DateGrid:
+    destination = known_destination(cur, destination_id, query.origin_iata)
+    currency, usd_per_unit = display_currency_and_rate(cur, query.currency)
+
+    cells = []
+    for row in get_date_grid(cur, query.origin_iata, destination_id, query.depart_date, query.return_date):
+        nights = (row["return_date"] - row["depart_date"]).days
+        flight_usd = float(row["flight_price_usd"])
+        totals = {}
+        for tier in HOTEL_TIERS:
+            per_night = destination[f"hotel_{tier}_per_night_usd"]
+            totals[tier] = None if per_night is None else from_usd(flight_usd + float(per_night) * nights, usd_per_unit)
+        cells.append(
+            DateGridCell(
+                depart_date=row["depart_date"],
+                return_date=row["return_date"],
+                nights=nights,
+                flight_amount=from_usd(flight_usd, usd_per_unit),
+                total_amount=TierTotals(**totals),
+            )
+        )
+    return DateGrid(currency=currency, days=DATE_GRID_DAYS, cells=cells)
+
+
+# The active destination, after checking the origin; a 404 when there's no
+# such active destination.
+def known_destination(cur, destination_id, origin_iata):
+    require_known_origin(cur, origin_iata, location="query")
+    destination = get_destination(cur, destination_id)
+    if destination is None:
+        raise HTTPException(status_code=404, detail="Destination not found")
+    return destination

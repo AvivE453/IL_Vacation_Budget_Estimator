@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 
 import { api, type Schemas, unwrap, validationMessages } from "../api/client";
 import EstimateResults from "../components/EstimateResults";
 import SearchForm from "../components/SearchForm";
+import { destinationUrl } from "../links";
 
 // The form and its results on one page: the results replace Flask's separate
 // results page, and the form stays above them for the next search.
 export default function SearchPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const origins = useQuery({
     queryKey: ["origins"],
     queryFn: () => unwrap(api.GET("/api/v1/origins")),
@@ -36,10 +39,27 @@ export default function SearchPage() {
         </p>
       </div>
 
-      {origins.isPending && <p>Loading...</p>}
-      {origins.error && <p className="error">Could not load the search form: {origins.error.message}</p>}
-      {origins.data && (
-        <SearchForm origins={origins.data} isSubmitting={estimate.isPending} onSubmit={estimate.mutate} />
+      {(origins.isPending || destinations.isPending) && <p>Loading...</p>}
+      {(origins.error || destinations.error) && (
+        <p className="error">Could not load the search form: {(origins.error ?? destinations.error)?.message}</p>
+      )}
+      {origins.data && destinations.data && (
+        <SearchForm
+          origins={origins.data}
+          destinations={destinations.data}
+          isSubmitting={estimate.isPending}
+          onEstimate={estimate.mutate}
+          onViewDestination={(destinationId, request) =>
+            navigate(
+              destinationUrl(destinationId, {
+                ...request,
+                currency: request.budget_currency,
+                budget: request.budget_amount,
+                tier: request.hotel_tier,
+              }),
+            )
+          }
+        />
       )}
 
       {estimate.error && (

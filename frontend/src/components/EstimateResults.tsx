@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import type { Schemas } from "../api/client";
-import { money, nightsBetween } from "../format";
+import { daysSince, money, nightsBetween } from "../format";
+import { destinationUrl } from "../links";
+import AgeTag, { FLIGHT_STALE_AFTER_DAYS, HOTEL_STALE_AFTER_DAYS } from "./AgeTag";
 
 type Props = {
   request: Schemas["EstimateRequest"];
@@ -20,6 +22,12 @@ export default function EstimateResults({ request, response }: Props) {
   const nights = nightsBetween(request.depart_date, request.return_date);
   const { currency } = response;
   const budgetFiltered = response.budget_amount !== null;
+  const tripSearch = {
+    ...request,
+    currency: request.budget_currency,
+    budget: request.budget_amount,
+    tier,
+  };
 
   return (
     <section>
@@ -90,7 +98,9 @@ export default function EstimateResults({ request, response }: Props) {
             <tbody>
               {chosen.destinations.map((d) => (
                 <tr key={d.destination_id}>
-                  <td>{d.city_name}</td>
+                  <td>
+                    <Link to={destinationUrl(d.destination_id, tripSearch)}>{d.city_name}</Link>
+                  </td>
                   <td>
                     {money(d.flight_total_amount)}
                     {d.airline_code && (
@@ -99,17 +109,25 @@ export default function EstimateResults({ request, response }: Props) {
                         <small>{d.airline_name ?? d.airline_code}</small>
                       </>
                     )}
+                    <br />
+                    <AgeTag
+                      label="seen"
+                      days={daysSince(d.flight_seen_on)}
+                      staleAfter={FLIGHT_STALE_AFTER_DAYS}
+                    />
                     {(d.flight_out_date !== request.depart_date || d.flight_return_date !== request.return_date) && (
                       <>
                         <br />
-                        <small>
-                          (closest: {d.flight_out_date} &rarr; {d.flight_return_date})
-                        </small>
+                        <span className="tag tag-missing">
+                          nearest dates: {d.flight_out_date} &rarr; {d.flight_return_date}
+                        </span>
                       </>
                     )}
                   </td>
                   <td>
                     {money(d.hotel_total_amount)}
+                    <br />
+                    <AgeTag label="prices" days={d.hotel_price_age_days} staleAfter={HOTEL_STALE_AFTER_DAYS} />
                     {d.matched_nights !== nights && (
                       <>
                         <br />

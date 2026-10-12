@@ -140,6 +140,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/destinations/{destination_id}/date-grid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Destination Date Grid */
+        get: operations["destination_date_grid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -168,6 +185,46 @@ export interface components {
             coverage: components["schemas"]["DestinationCoverage"][];
             /** Collection Volume */
             collection_volume: components["schemas"]["DailyVolume"][];
+        };
+        /** DateGrid */
+        DateGrid: {
+            /**
+             * Currency
+             * @description Every amount is in this currency: the one requested, or USD if it has no rate
+             */
+            currency: string;
+            /**
+             * Days
+             * @description The grid spans this many days either side of the requested dates
+             */
+            days: number;
+            /**
+             * Cells
+             * @description Only the date pairs with a flight on file - an absent pair is missing data
+             */
+            cells: components["schemas"]["DateGridCell"][];
+        };
+        /** DateGridCell */
+        DateGridCell: {
+            /**
+             * Depart Date
+             * Format: date
+             */
+            depart_date: string;
+            /**
+             * Return Date
+             * Format: date
+             */
+            return_date: string;
+            /** Nights */
+            nights: number;
+            /**
+             * Flight Amount
+             * @description The cheapest round trip on file for these exact dates
+             */
+            flight_amount: number;
+            /** @description Flight + hotel for these nights, per hotel tier; null when the tier has no hotel price */
+            total_amount: components["schemas"]["TierTotals"];
         };
         /** Destination */
         Destination: {
@@ -233,6 +290,17 @@ export interface components {
             hotel_total_amount: number;
             /** Total Estimate Amount */
             total_estimate_amount: number;
+            /**
+             * Flight Seen On
+             * Format: date
+             * @description The day a real search last saw this flight price - or, for prices collected before that was recorded, the day we collected it
+             */
+            flight_seen_on: string;
+            /**
+             * Hotel Price Age Days
+             * @description Days since the city's hotel prices were collected
+             */
+            hotel_price_age_days: number;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -496,6 +564,15 @@ export interface components {
             budget: components["schemas"]["TierEstimate"];
             average: components["schemas"]["TierEstimate"];
             luxury: components["schemas"]["TierEstimate"];
+        };
+        /** TierTotals */
+        TierTotals: {
+            /** Budget */
+            budget: number | null;
+            /** Average */
+            average: number | null;
+            /** Luxury */
+            luxury: number | null;
         };
         /** Trip */
         Trip: {
@@ -807,6 +884,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Trip"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description No free database connection; retry after Retry-After */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    destination_date_grid: {
+        parameters: {
+            query: {
+                depart_date: string;
+                return_date: string;
+                origin_iata?: string;
+                currency?: "ILS" | "USD" | "EUR";
+            };
+            header?: never;
+            path: {
+                destination_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateGrid"];
                 };
             };
             /** @description Not found */

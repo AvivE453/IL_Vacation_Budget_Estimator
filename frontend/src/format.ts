@@ -41,3 +41,31 @@ export function daysAgo(days: number | null): string {
   }
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
+
+export function daysSince(isoDate: string): number {
+  return nightsBetween(isoDate, todayIso());
+}
+
+// "2026-11-07" -> "Sat 7 Nov": the weekday matters when choosing between dates.
+export function shortDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
+// "18:55:00" -> "18:55"
+export function clock(time: string | null): string {
+  return time === null ? "-" : time.slice(0, 5);
+}
+
+// 305 -> "5h 05m"
+export function duration(minutes: number | null): string {
+  if (minutes === null) {
+    return "-";
+  }
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}

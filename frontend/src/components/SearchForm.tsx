@@ -5,13 +5,16 @@ import { addDays, todayIso } from "../format";
 
 type Props = {
   origins: Schemas["Origin"][];
+  destinations: Schemas["Destination"][];
   isSubmitting: boolean;
-  onSubmit: (request: Schemas["EstimateRequest"]) => void;
+  onEstimate: (request: Schemas["EstimateRequest"]) => void;
+  onViewDestination: (destinationId: number, request: Schemas["EstimateRequest"]) => void;
 };
 
 // What the inputs hold: always strings, converted to the API's types on submit.
 type FormValues = {
   origin_iata: string;
+  destination_id: string; // "" for every destination
   depart_date: string;
   return_date: string;
   budget_amount: string;
@@ -19,11 +22,12 @@ type FormValues = {
   hotel_tier: Schemas["EstimateRequest"]["hotel_tier"];
 };
 
-export default function SearchForm({ origins, isSubmitting, onSubmit }: Props) {
+export default function SearchForm({ origins, destinations, isSubmitting, onEstimate, onViewDestination }: Props) {
   const [values, setValues] = useState<FormValues>(() => {
     const today = todayIso();
     return {
       origin_iata: origins[0].iata_code,
+      destination_id: "",
       depart_date: today,
       return_date: addDays(today, 7),
       budget_amount: "5000",
@@ -40,7 +44,15 @@ export default function SearchForm({ origins, isSubmitting, onSubmit }: Props) {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    onSubmit({ ...values, budget_amount: Number(values.budget_amount) });
+    const { destination_id, ...rest } = values;
+    const request = { ...rest, budget_amount: Number(values.budget_amount) };
+    // No destination: rank them all (saved to history). One destination: its
+    // own view, with every flight option for the exact dates.
+    if (destination_id === "") {
+      onEstimate(request);
+    } else {
+      onViewDestination(Number(destination_id), request);
+    }
   }
 
   return (
@@ -51,6 +63,18 @@ export default function SearchForm({ origins, isSubmitting, onSubmit }: Props) {
           {origins.map((origin) => (
             <option key={origin.iata_code} value={origin.iata_code}>
               {origin.city_name} ({origin.iata_code})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Destination
+        <select name="destination_id" value={values.destination_id} onChange={handleChange}>
+          <option value="">All destinations, cheapest first</option>
+          {destinations.map((d) => (
+            <option key={d.destination_id} value={d.destination_id}>
+              {d.city_name}, {d.country_name}
             </option>
           ))}
         </select>
@@ -105,7 +129,7 @@ export default function SearchForm({ origins, isSubmitting, onSubmit }: Props) {
       </label>
 
       <button type="submit" className="btn" disabled={isSubmitting}>
-        {isSubmitting ? "Estimating..." : "Estimate"}
+        {isSubmitting ? "Estimating..." : values.destination_id === "" ? "Estimate" : "Show this destination"}
       </button>
     </form>
   );
