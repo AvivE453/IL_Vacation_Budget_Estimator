@@ -1,5 +1,5 @@
 # Insert controlled rows into the test database. Destinations come from the
-# seed (see conftest.py), so they're referenced by IATA code / hotel city key.
+# seed (see conftest.py), so they're referenced by IATA code.
 # Everything is written through the test's own `cur`, so it's rolled back
 # with the rest of the test.
 
@@ -34,16 +34,19 @@ def add_flight(
     assert cur.rowcount == 1, f"no seeded destination with IATA code {destination_iata}"
 
 
-def add_hotel(cur, city_key, avg_usd, budget_usd=None, luxury_usd=None, sample_size=20):
+def add_hotel(cur, destination_iata, avg_usd, budget_usd=None, luxury_usd=None, sample_size=20):
     cur.execute(
         """
         INSERT INTO hotel_prices
-            (city_name_normalized, avg_price_per_night_usd,
+            (destination_id, avg_price_per_night_usd,
              avg_price_budget_tier_usd, avg_price_luxury_tier_usd, sample_size)
-        VALUES (%s, %s, %s, %s, %s)
+        SELECT destination_id, %s, %s, %s, %s
+        FROM destinations
+        WHERE iata_code = %s
         """,
-        (city_key, avg_usd, budget_usd, luxury_usd, sample_size),
+        (avg_usd, budget_usd, luxury_usd, sample_size, destination_iata),
     )
+    assert cur.rowcount == 1, f"no seeded destination with IATA code {destination_iata}"
 
 
 def add_airline(cur, airline_code, airline_name):

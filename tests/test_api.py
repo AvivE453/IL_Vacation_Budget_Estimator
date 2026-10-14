@@ -67,7 +67,7 @@ def test_origins_lists_israeli_airports(client):
 
 def test_data_quality_shows_coverage_and_gaps(client, cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=150, sample_size=25)
+    add_hotel(cur, "BCN", avg_usd=150, sample_size=25)
 
     response = client.get("/api/v1/data-quality")
 
@@ -118,7 +118,7 @@ def search_body(**overrides):
 def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
     add_exchange_rate(cur, "ILS", 0.25)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="IZ", price_seen_on=datetime.date(2030, 5, 20))
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=250)
 
     response = client.post("/api/v1/estimates", json=search_body())
 
@@ -161,7 +161,7 @@ def test_estimate_returns_all_three_tiers_in_the_budget_currency(client, cur):
 )
 def test_estimate_prices_the_whole_party(client, cur, travelers, rooms, flights, hotel):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     response = client.post(
         "/api/v1/estimates", json=search_body(budget_currency="USD", travelers=travelers, rooms=rooms)
@@ -175,7 +175,7 @@ def test_estimate_prices_the_whole_party(client, cur, travelers, rooms, flights,
 
 def test_the_budget_is_for_the_whole_party_and_saved_with_it(client, cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
     # $1500: a couple's $1300 fits; two couples' $2600 doesn't.
     couple = client.post("/api/v1/estimates", json=search_body(budget_amount=1500, budget_currency="USD", travelers=2))
     two_couples = client.post(
@@ -193,7 +193,7 @@ def test_estimate_shows_how_fresh_each_price_is(client, cur):
     # Collected before price_seen_on was recorded: the day we collected it stands in.
     collected = datetime.datetime(2030, 5, 10, 12, tzinfo=datetime.UTC)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, observed_at=collected)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
     cur.execute("UPDATE hotel_prices SET loaded_at = now() - interval '12 days'")
 
     response = client.post("/api/v1/estimates", json=search_body(budget_currency="USD"))
@@ -206,8 +206,8 @@ def test_estimate_shows_how_fresh_each_price_is(client, cur):
 def test_estimate_saves_only_the_requested_tier_to_this_browsers_history(client, cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
     add_flight(cur, "MAD", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
-    add_hotel(cur, "madrid", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "MAD", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
 
     response = client.post("/api/v1/estimates", json=search_body(budget_currency="USD", hotel_tier="luxury"))
 
@@ -306,12 +306,12 @@ def test_estimate_statement_count_does_not_grow_with_destinations(client, cur, c
         return client.post("/api/v1/estimates", json=search_body(budget_amount=100_000))
 
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
     with_one = statements_for(counting, search)
 
-    for iata, city in (("MAD", "madrid"), ("FCO", "rome")):
+    for iata in ("MAD", "FCO"):
         add_flight(cur, iata, DEPART, RETURN, price_usd=300)
-        add_hotel(cur, city, avg_usd=100)
+        add_hotel(cur, iata, avg_usd=100)
     with_three = statements_for(counting, search)
 
     assert with_one == with_three
@@ -466,7 +466,7 @@ def live_option(price, **overrides):
 def test_trip_shows_live_options_with_hotel_prices(client, cur, live):
     add_exchange_rate(cur, "ILS", 0.25)
     add_airline(cur, "IZ", "Arkia")
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=999)  # collected data is ignored when live answers
     live["options"] = [live_option(176), live_option(231, airline_code="XX", flight_number=None)]
 
@@ -508,7 +508,7 @@ def test_trip_shows_live_options_with_hotel_prices(client, cur, live):
 )
 def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_answer, live_status):
     live["options"] = live_answer
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
     nearest_depart = DEPART + datetime.timedelta(days=1)  # a 6-night trip
     # The same flight seen twice: only the price seen last is an option.
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=300, airline_code="IZ",
@@ -590,7 +590,7 @@ def days(n):
 
 def test_date_grid_has_the_cheapest_flight_per_date_pair_with_tier_totals(client, cur):
     add_exchange_rate(cur, "ILS", 0.25)
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="IZ")
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=250, airline_code="W4")  # same dates, cheaper
     add_flight(cur, "BCN", DEPART - days(3), RETURN + days(3), price_usd=400)  # the grid's corner
@@ -619,7 +619,7 @@ def test_date_grid_has_the_cheapest_flight_per_date_pair_with_tier_totals(client
 
 
 def test_trip_and_date_grid_price_the_whole_party(client, cur, live):
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=250)
 
     body = trip(client, cur, travelers=4, rooms=2).json()
@@ -691,7 +691,7 @@ def test_same_airline_and_stops_at_different_times_are_two_flights(client, cur, 
 
 
 def test_stored_live_results_feed_the_estimate_and_the_fallback(client, cur, live):
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
     live["options"] = [live_option(559, airline_code="LY"), live_option(176, airline_code="W4")]
     trip(client, cur)
 

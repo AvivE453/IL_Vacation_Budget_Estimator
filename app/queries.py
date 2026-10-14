@@ -167,7 +167,7 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, 
         ),
         hotel_pick AS (
             SELECT
-                hp.city_name_normalized,
+                hp.destination_id,
                 t.hotel_tier,
                 CASE t.hotel_tier
                     WHEN 'budget' THEN hp.avg_price_budget_tier_usd
@@ -208,7 +208,7 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, 
             LEFT JOIN latest_flight AS lf ON lf.destination_id = d.destination_id
             LEFT JOIN airlines AS al ON al.airline_code = lf.airline_code
             LEFT JOIN hotel_pick AS hpk
-                ON hpk.city_name_normalized = d.hotel_data_city_key AND hpk.hotel_tier = t.hotel_tier
+                ON hpk.destination_id = d.destination_id AND hpk.hotel_tier = t.hotel_tier
             WHERE d.is_active
         )
         SELECT *
@@ -384,7 +384,7 @@ def get_destination(cur, destination_id):
         FROM destinations AS d
         JOIN airports AS a ON a.iata_code = d.iata_code
         JOIN countries AS c ON c.country_code = a.country_code
-        LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
+        LEFT JOIN hotel_prices AS hp ON hp.destination_id = d.destination_id
         WHERE d.destination_id = %s
           AND d.is_active
         """,
@@ -507,7 +507,7 @@ def get_data_quality_report(cur):
         FROM destinations AS d
         JOIN airports AS a ON a.iata_code = d.iata_code
         JOIN countries AS c ON c.country_code = a.country_code
-        LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
+        LEFT JOIN hotel_prices AS hp ON hp.destination_id = d.destination_id
         WHERE d.is_active
         -- In the order the Hebrew page shows them; Unicode puts Hebrew letters in alphabetical order.
         ORDER BY COALESCE(d.city_name_he, d.city_name)

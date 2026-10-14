@@ -18,17 +18,15 @@ def load_destinations(cur):
         cur.execute(
             """
             INSERT INTO destinations
-                (city_name, iata_code, hotel_data_city_key, city_name_he)
-            VALUES (%s, %s, %s, %s)
+                (city_name, iata_code, city_name_he)
+            VALUES (%s, %s, %s)
             ON CONFLICT (iata_code) DO UPDATE SET
                 city_name = EXCLUDED.city_name,
-                hotel_data_city_key = EXCLUDED.hotel_data_city_key,
                 city_name_he = EXCLUDED.city_name_he
             """,
             (
                 row["city_name"],
                 row["iata_code"],
-                row["hotel_data_city_key"],
                 # An empty cell is no Hebrew name (NULL, so the frontend shows the English one), not "".
                 row["city_name_he"] or None,
             ),

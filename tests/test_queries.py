@@ -32,7 +32,7 @@ def test_count_active_destinations_ignores_inactive(cur):
 def test_data_quality_report_counts_per_destination(cur):
     for day in range(3):
         add_flight(cur, "BCN", DEPART + datetime.timedelta(days=day), RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=150, sample_size=25)
+    add_hotel(cur, "BCN", avg_usd=150, sample_size=25)
 
     rows = {r["city_name"]: r for r in get_data_quality_report(cur)}
 
@@ -46,7 +46,7 @@ def test_data_quality_report_counts_per_destination(cur):
 
 
 def test_data_quality_report_shows_hotel_price_age_in_days(cur):
-    add_hotel(cur, "barcelona", avg_usd=150)
+    add_hotel(cur, "BCN", avg_usd=150)
     cur.execute("UPDATE hotel_prices SET loaded_at = now() - interval '10 days'")
 
     rows = {r["city_name"]: r for r in get_data_quality_report(cur)}

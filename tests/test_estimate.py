@@ -38,8 +38,8 @@ def test_flight_within_drift_window_is_matched_beyond_it_is_missing(cur):
     add_flight(cur, "BCN", DEPART + days(4), RETURN + days(4), price_usd=300)
     add_flight(cur, "MAD", DEPART + days(5), RETURN, price_usd=300)
     add_flight(cur, "FCO", DEPART, RETURN - days(5), price_usd=300)
-    for city in ("barcelona", "madrid", "rome"):
-        add_hotel(cur, city, avg_usd=100)
+    for iata in ("BCN", "MAD", "FCO"):
+        add_hotel(cur, iata, avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -49,7 +49,7 @@ def test_flight_within_drift_window_is_matched_beyond_it_is_missing(cur):
 def test_nearest_date_pair_wins_over_cheaper_farther_one(cur):
     add_flight(cur, "BCN", DEPART + days(1), RETURN + days(1), price_usd=500)  # total drift 2
     add_flight(cur, "BCN", DEPART + days(2), RETURN + days(2), price_usd=100)  # total drift 4
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -61,7 +61,7 @@ def test_same_dates_use_most_recent_observation(cur):
     newer = datetime.datetime(2030, 1, 2, tzinfo=datetime.UTC)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, observed_at=older)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=350, observed_at=newer)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -77,7 +77,7 @@ def test_same_dates_prefer_the_most_recently_seen_price(cur):
                observed_at=fetched_later, price_seen_on=datetime.date(2029, 12, 20))
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=350,
                observed_at=fetched_earlier, price_seen_on=datetime.date(2029, 12, 30))
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -87,8 +87,8 @@ def test_same_dates_prefer_the_most_recently_seen_price(cur):
 def test_any_exact_match_drops_every_approximate_one(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
     add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=100)
-    add_hotel(cur, "barcelona", avg_usd=100)
-    add_hotel(cur, "madrid", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
+    add_hotel(cur, "MAD", avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -98,8 +98,8 @@ def test_any_exact_match_drops_every_approximate_one(cur):
 def test_no_exact_match_falls_back_to_nearest_for_everyone(cur):
     add_flight(cur, "BCN", DEPART + days(1), RETURN, price_usd=300)
     add_flight(cur, "MAD", DEPART, RETURN + days(2), price_usd=100)
-    add_hotel(cur, "barcelona", avg_usd=100)
-    add_hotel(cur, "madrid", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
+    add_hotel(cur, "MAD", avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -121,14 +121,14 @@ def test_flight_without_hotel_is_not_viable(cur):
 
 def test_over_budget_is_not_reported_as_missing_data(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     assert estimate(cur, budget_usd=500) == ([], False)
 
 
 def test_budget_is_inclusive(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100)  # 300 + 7 * 100 = 1000
+    add_hotel(cur, "BCN", avg_usd=100)  # 300 + 7 * 100 = 1000
 
     estimates, _ = estimate(cur, budget_usd=1000)
 
@@ -140,8 +140,8 @@ def test_exact_match_over_budget_falls_back_to_approximate_within_budget(cur):
     # over-budget exact match no longer counts as "an exact match exists".
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=2000)
     add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=100)
-    add_hotel(cur, "barcelona", avg_usd=100)
-    add_hotel(cur, "madrid", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
+    add_hotel(cur, "MAD", avg_usd=100)
 
     estimates, _ = estimate(cur, budget_usd=1000)
 
@@ -153,7 +153,7 @@ def test_exact_match_over_budget_falls_back_to_approximate_within_budget(cur):
 
 def test_hotel_nights_follow_matched_flight_not_request(cur):
     add_flight(cur, "BCN", DEPART + days(1), RETURN - days(1), price_usd=300)  # 5 nights
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     row = estimate(cur)[0][0]
 
@@ -166,8 +166,8 @@ def test_results_sorted_by_total_cost(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=900)
     add_flight(cur, "MAD", DEPART, RETURN, price_usd=100)
     add_flight(cur, "FCO", DEPART, RETURN, price_usd=500)
-    for city in ("barcelona", "madrid", "rome"):
-        add_hotel(cur, city, avg_usd=100)
+    for iata in ("BCN", "MAD", "FCO"):
+        add_hotel(cur, iata, avg_usd=100)
 
     estimates, _ = estimate(cur)
 
@@ -177,7 +177,7 @@ def test_results_sorted_by_total_cost(cur):
 @pytest.mark.parametrize(("tier", "per_night"), [("budget", 60), ("average", 100), ("luxury", 250)])
 def test_hotel_tier_picks_its_own_price(cur, tier, per_night):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=250)
 
     row = estimate(cur, hotel_tier=tier)[0][0]
 
@@ -186,7 +186,7 @@ def test_hotel_tier_picks_its_own_price(cur, tier, per_night):
 
 def test_tier_missing_from_small_sample_is_missing_data_not_average(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=None, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=None, luxury_usd=None, sample_size=5)
 
     assert estimate(cur, hotel_tier="luxury") == ([], True)
     assert cities(estimate(cur, hotel_tier="average")[0]) == ["Barcelona"]
@@ -199,7 +199,7 @@ def test_unknown_hotel_tier_is_rejected(cur):
 
 def test_unknown_airline_code_keeps_the_row(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="H3")
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     row = estimate(cur)[0][0]
 
@@ -214,9 +214,9 @@ def test_each_tier_matches_estimating_that_tier_alone(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
     add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=200)
     add_flight(cur, "FCO", DEPART, RETURN, price_usd=900)
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=250)
-    add_hotel(cur, "madrid", avg_usd=80, budget_usd=None, luxury_usd=None, sample_size=5)
-    add_hotel(cur, "rome", avg_usd=120, budget_usd=70, luxury_usd=300)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=250)
+    add_hotel(cur, "MAD", avg_usd=80, budget_usd=None, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "FCO", avg_usd=120, budget_usd=70, luxury_usd=300)
 
     all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, 2500)
 
@@ -226,7 +226,7 @@ def test_each_tier_matches_estimating_that_tier_alone(cur):
 
 def test_tiers_get_their_own_budget_and_missing_data_verdicts(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_hotel(cur, "barcelona", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
+    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=None, sample_size=5)
 
     all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, budget_amount_usd=800)
 
@@ -248,7 +248,7 @@ SEEN = datetime.date(2030, 5, 20)
 def test_cheapest_of_several_flights_seen_the_same_day(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=559, airline_code="LY", price_seen_on=SEEN)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=176, airline_code="W4", price_seen_on=SEEN)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     row = estimate(cur)[0][0]
 
@@ -260,7 +260,7 @@ def test_newer_flight_wins_over_a_cheaper_one_seen_a_day_earlier(cur):
     # seen later means the cheaper one most likely left the cache.
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", price_seen_on=SEEN - days(1))
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     row = estimate(cur)[0][0]
 
@@ -272,7 +272,7 @@ def test_when_every_price_is_old_the_newest_of_them_is_still_shown(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN - days(90))
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="W4", price_seen_on=SEEN - days(90))
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=200, airline_code="U2", price_seen_on=SEEN - days(92))
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     assert estimate(cur)[0][0]["airline_code"] == "W4"
 
@@ -281,7 +281,7 @@ def test_rows_without_a_seen_date_use_the_day_we_collected_them(cur):
     collected = datetime.datetime(2030, 5, 1, tzinfo=datetime.UTC)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", observed_at=collected)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     # Collected 2030-05-01, before the newest price: dropped.
     assert estimate(cur)[0][0]["airline_code"] == "LY"
@@ -290,7 +290,7 @@ def test_rows_without_a_seen_date_use_the_day_we_collected_them(cur):
 def test_nearest_dates_still_come_before_price_and_freshness(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=500, airline_code="LY", price_seen_on=SEEN - days(3))
     add_flight(cur, "BCN", DEPART + days(1), RETURN, price_usd=100, airline_code="W4", price_seen_on=SEEN)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     assert estimate(cur)[0][0]["airline_code"] == "LY"
 
@@ -305,6 +305,6 @@ def test_offers_for_the_same_flight_seen_the_same_day_take_the_cheapest(cur):
                price_seen_on=SEEN, observed_at=stored_first)
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=376, airline_code="GQ",
                price_seen_on=SEEN, observed_at=stored_later)
-    add_hotel(cur, "barcelona", avg_usd=100)
+    add_hotel(cur, "BCN", avg_usd=100)
 
     assert estimate(cur)[0][0]["flight_total_usd"] == 290

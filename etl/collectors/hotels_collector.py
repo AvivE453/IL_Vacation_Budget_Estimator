@@ -106,9 +106,9 @@ def fetch_searches_left():
 def pick_destinations(cur, limit):
     cur.execute(
         """
-        SELECT d.destination_id, d.city_name, d.hotel_data_city_key
+        SELECT d.destination_id, d.city_name
         FROM destinations AS d
-        LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
+        LEFT JOIN hotel_prices AS hp ON hp.destination_id = d.destination_id
         WHERE d.is_active
         ORDER BY hp.loaded_at ASC NULLS FIRST, d.destination_id
         LIMIT %s
@@ -157,11 +157,11 @@ def main(max_searches=DEFAULT_MAX_SEARCHES_PER_RUN):
             cur.execute(
                 """
                 INSERT INTO hotel_prices
-                    (city_name_normalized,
+                    (destination_id,
                      avg_price_per_night_usd, min_price_per_night_usd, sample_size,
                      avg_price_budget_tier_usd, avg_price_luxury_tier_usd)
                 VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (city_name_normalized) DO UPDATE SET
+                ON CONFLICT (destination_id) DO UPDATE SET
                     avg_price_per_night_usd = EXCLUDED.avg_price_per_night_usd,
                     min_price_per_night_usd = EXCLUDED.min_price_per_night_usd,
                     sample_size = EXCLUDED.sample_size,
@@ -170,7 +170,7 @@ def main(max_searches=DEFAULT_MAX_SEARCHES_PER_RUN):
                     loaded_at = now()
                 """,
                 (
-                    dest["hotel_data_city_key"],
+                    dest["destination_id"],
                     sum(prices) / len(prices),
                     min(prices),
                     len(prices),
