@@ -76,7 +76,7 @@ class FlightOption(BaseModel):
     return_minutes: int | None = Field(description="null when the option comes from collected data")
     price_amount: float = Field(description="One traveler's round trip, without checked baggage")
     price_seen_on: datetime.date | None = Field(
-        description="The day a real Aviasales search saw this price; null for prices collected before it was recorded"
+        description="The day a real Aviasales search saw this price; null when a live answer didn't say"
     )
     booking_url: str | None = Field(description="Search for this flight on Aviasales; null for collected data")
 

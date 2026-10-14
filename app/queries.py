@@ -29,10 +29,7 @@ DATE_GRID_DAYS = 3
 _FRESH_FLIGHTS_CTES = """
     flight_candidates AS (
         SELECT f.*,
-               ABS(f.depart_date - %(depart_date)s) + ABS(f.return_date - %(return_date)s) AS date_drift,
-               -- Rows from before price_seen_on existed: the day we collected
-               -- them, the latest they can have been seen.
-               COALESCE(f.price_seen_on, f.observed_at::date) AS seen_on
+               ABS(f.depart_date - %(depart_date)s) + ABS(f.return_date - %(return_date)s) AS date_drift
         FROM flight_price_observations AS f
         WHERE f.origin_iata = %(origin_iata)s
           -- Sargable BETWEEN so idx_flight_obs_depart_date can narrow this
@@ -44,18 +41,18 @@ _FRESH_FLIGHTS_CTES = """
         SELECT DISTINCT ON (destination_id, depart_date, return_date,
                             airline_code, number_of_stops, depart_time, return_time)
                *,
-               MAX(seen_on) OVER (PARTITION BY destination_id, depart_date, return_date) AS trip_newest_seen_on
+               MAX(price_seen_on) OVER (PARTITION BY destination_id, depart_date, return_date) AS trip_newest_seen_on
         FROM flight_candidates
         -- Same flight seen on the same day at two prices: two offers (a
         -- different connection or fare), not a price change - the cheaper one.
         ORDER BY destination_id, depart_date, return_date,
                  airline_code, number_of_stops, depart_time, return_time,
-                 seen_on DESC, price_amount_usd, observed_at DESC
+                 price_seen_on DESC, price_amount_usd, observed_at DESC
     ),
     fresh_flights AS (
         SELECT *
         FROM latest_per_flight
-        WHERE seen_on = trip_newest_seen_on
+        WHERE price_seen_on = trip_newest_seen_on
     )
 """
 
@@ -156,11 +153,11 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, 
                 destination_id, price_amount_usd AS flight_total_usd,
                 depart_date AS flight_out_date, return_date AS flight_return_date,
                 depart_time AS flight_out_time, return_time AS flight_return_time,
-                airline_code, seen_on AS flight_seen_on
+                airline_code, price_seen_on AS flight_seen_on
             FROM fresh_flights
             -- The nearest dates; among their flights, the cheapest.
             ORDER BY destination_id, date_drift, price_amount_usd,
-                     price_seen_on DESC NULLS LAST, observed_at DESC
+                     price_seen_on DESC, observed_at DESC
         ),
         tiers AS (
             SELECT unnest(%(hotel_tiers)s::text[]) AS hotel_tier
@@ -409,7 +406,7 @@ def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, 
         nearest_pair AS (
             SELECT depart_date, return_date
             FROM destination_flights
-            ORDER BY date_drift, price_amount_usd, price_seen_on DESC NULLS LAST, observed_at DESC
+            ORDER BY date_drift, price_amount_usd, price_seen_on DESC, observed_at DESC
             LIMIT 1
         )
         SELECT df.depart_date, df.return_date, df.airline_code, al.airline_name, df.number_of_stops,
@@ -417,7 +414,7 @@ def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, 
         FROM destination_flights AS df
         JOIN nearest_pair AS n ON n.depart_date = df.depart_date AND n.return_date = df.return_date
         LEFT JOIN airlines AS al ON al.airline_code = df.airline_code
-        ORDER BY df.price_amount_usd, df.price_seen_on DESC NULLS LAST, df.observed_at DESC
+        ORDER BY df.price_amount_usd, df.price_seen_on DESC, df.observed_at DESC
         """,
         {**_fresh_flights_params(origin_iata, depart_date, return_date), "destination_id": destination_id},
     )
@@ -449,10 +446,9 @@ def get_date_grid(cur, origin_iata, destination_id, depart_date, return_date, da
 
 
 # Every option a live destination view returned, as new observations. Same
-# skip-what's-stored rule as the collector (no ON CONFLICT target: covers
-# uq_flight_obs and uq_flight_obs_price_seen), so showing the same trip again
-# adds nothing - and, like the collector, an option without price_seen_on
-# isn't stored, since nothing could recognize it again. Returns how many rows were new.
+# skip-what's-stored rule as the collector (uq_flight_obs), so showing the
+# same trip again adds nothing - and, like the collector, an option without
+# price_seen_on isn't stored (the column is NOT NULL). Returns how many rows were new.
 def insert_live_flight_observations(cur, destination_id, origin_iata, destination_iata, options):
     rows = [
         (

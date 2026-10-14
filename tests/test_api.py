@@ -190,9 +190,7 @@ def test_the_budget_is_for_the_whole_party_and_saved_with_it(client, cur):
 
 
 def test_estimate_shows_how_fresh_each_price_is(client, cur):
-    # Collected before price_seen_on was recorded: the day we collected it stands in.
-    collected = datetime.datetime(2030, 5, 10, 12, tzinfo=datetime.UTC)
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, observed_at=collected)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, price_seen_on=datetime.date(2030, 5, 10))
     add_hotel(cur, "BCN", avg_usd=100)
     cur.execute("UPDATE hotel_prices SET loaded_at = now() - interval '12 days'")
 

@@ -15,7 +15,9 @@ def add_flight(
              price_amount, currency_code, price_amount_usd, airline_code, observed_at, price_seen_on,
              number_of_stops)
         SELECT destination_id, 'TLV', iata_code, %(depart)s, %(return)s,
-               %(price)s, 'USD', %(price)s, %(airline)s, COALESCE(%(observed_at)s, now()), %(seen_on)s,
+               %(price)s, 'USD', %(price)s, %(airline)s, COALESCE(%(observed_at)s, now()),
+               -- Unless a test says otherwise, seen the day it was collected.
+               COALESCE(%(seen_on)s, COALESCE(%(observed_at)s, now())::date),
                %(stops)s
         FROM destinations
         WHERE iata_code = %(iata)s

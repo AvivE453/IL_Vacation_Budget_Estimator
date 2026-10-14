@@ -132,8 +132,8 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
             continue
         seen_on = price_seen_on(result.get("link"))
         if seen_on is None:
-            # Without it uq_flight_obs_price_seen can't recognize the quote and
-            # uq_flight_obs includes observed_at, so every run would store it again.
+            # The column is NOT NULL: the seen-on day is what tells a new price
+            # from one an earlier run already stored (uq_flight_obs).
             counters["skipped_no_search_date"] += 1
             continue
 
@@ -145,8 +145,7 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
                  price_amount, currency_code, price_amount_usd, number_of_stops, airline_code,
                  price_seen_on)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            -- No target: skips a duplicate within this run (uq_flight_obs) and a
-            -- price an earlier run already stored (uq_flight_obs_price_seen).
+            -- Skips a price this run or an earlier one already stored (uq_flight_obs).
             ON CONFLICT DO NOTHING
             """,
             (

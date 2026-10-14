@@ -57,10 +57,8 @@ def test_nearest_date_pair_wins_over_cheaper_farther_one(cur):
 
 
 def test_same_dates_use_most_recent_observation(cur):
-    older = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
-    newer = datetime.datetime(2030, 1, 2, tzinfo=datetime.UTC)
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, observed_at=older)
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=350, observed_at=newer)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, price_seen_on=datetime.date(2030, 1, 1))
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=350, price_seen_on=datetime.date(2030, 1, 2))
     add_hotel(cur, "BCN", avg_usd=100)
 
     estimates, _ = estimate(cur)
@@ -275,16 +273,6 @@ def test_when_every_price_is_old_the_newest_of_them_is_still_shown(cur):
     add_hotel(cur, "BCN", avg_usd=100)
 
     assert estimate(cur)[0][0]["airline_code"] == "W4"
-
-
-def test_rows_without_a_seen_date_use_the_day_we_collected_them(cur):
-    collected = datetime.datetime(2030, 5, 1, tzinfo=datetime.UTC)
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=150, airline_code="W4", observed_at=collected)
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=400, airline_code="LY", price_seen_on=SEEN)
-    add_hotel(cur, "BCN", avg_usd=100)
-
-    # Collected 2030-05-01, before the newest price: dropped.
-    assert estimate(cur)[0][0]["airline_code"] == "LY"
 
 
 def test_nearest_dates_still_come_before_price_and_freshness(cur):

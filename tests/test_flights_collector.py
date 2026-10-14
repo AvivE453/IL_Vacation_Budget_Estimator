@@ -138,10 +138,8 @@ def test_price_already_stored_by_an_earlier_run_is_not_inserted_again(cur, monke
 
 
 def test_price_without_a_search_date_is_skipped_and_counted(cur, monkeypatch):
-    # Without price_seen_on, uq_flight_obs_price_seen can't recognize the
-    # quote, and uq_flight_obs includes observed_at - so every run would store
-    # it again. Hasn't happened since the link carries search_date, but if it
-    # stops, the run says so instead of duplicating rows quietly.
+    # price_seen_on is NOT NULL: it's what tells a new price from a stored one.
+    # Every link has carried search_date so far; if one stops, the run says so.
     no_date = {**ROUND_TRIP, "link": "/search/TLV0106BCN08061?t=abc&expected_price=300"}
     monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [no_date, ROUND_TRIP]})
     counters = new_counters()

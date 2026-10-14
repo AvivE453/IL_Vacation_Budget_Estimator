@@ -456,7 +456,7 @@ export interface components {
             price_amount: number;
             /**
              * Price Seen On
-             * @description The day a real Aviasales search saw this price; null for prices collected before it was recorded
+             * @description The day a real Aviasales search saw this price; null when a live answer didn't say
              */
             price_seen_on: string | null;
             /**
