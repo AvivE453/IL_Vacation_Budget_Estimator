@@ -46,18 +46,37 @@ def test_rate_limited_request_waits_for_the_window_to_reset(monkeypatch):
     slept = []
     monkeypatch.setattr(flights_collector.fetch_round_trips.retry, "sleep", slept.append)
 
-    payload = flights_collector.fetch_round_trips("TLV", "BCN", "2030-06")
+    payload = flights_collector.fetch_round_trips("TLV", "BCN", "2030-06", "2030-06")
 
     assert payload == {"data": [ROUND_TRIP]}
     assert slept == [7]
 
 
+def test_months_cover_trips_that_return_the_next_month():
+    pairs = flights_collector.target_month_pairs(datetime.date(2026, 11, 20))
+
+    assert pairs[:4] == [("2026-11", "2026-11"), ("2026-11", "2026-12"), ("2026-12", "2026-12"), ("2026-12", "2027-01")]
+    assert pairs[-2:] == [("2027-05", "2027-05"), ("2027-05", "2027-06")]  # six months on, none skipped
+    assert len(pairs) == 14
+
+
+def test_each_leg_is_asked_for_its_own_month(monkeypatch):
+    sent = []
+    monkeypatch.setattr(
+        flights_collector.requests, "get",
+        lambda url, params, timeout: sent.append(params) or FakeResponse(200, body={"data": []}),
+    )
+
+    flights_collector.fetch_round_trips("TLV", "BCN", "2030-06", "2030-07")
+
+    assert (sent[0]["departure_at"], sent[0]["return_at"]) == ("2030-06", "2030-07")
+
+
 def test_inserted_counter_ignores_duplicate_rows(cur, monkeypatch):
     monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [ROUND_TRIP, ROUND_TRIP]})
-    cur.execute("SELECT destination_id FROM destinations WHERE iata_code = 'BCN'")
     counters = new_counters()
 
-    flights_collector.collect_destination_month(cur, cur.fetchone()["destination_id"], "BCN", "2030-06", counters)
+    flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2030-06", "2030-06", counters)
 
     cur.execute("SELECT COUNT(*) AS n FROM flight_price_observations")
     assert cur.fetchone()["n"] == 1
@@ -68,7 +87,7 @@ def test_destinations_collected_before_a_crash_are_kept(committing_db, monkeypat
     monkeypatch.setattr(flights_collector, "TRAVELPAYOUTS_TOKEN", "test-token")
     destinations_seen = []
 
-    def fetch(origin, destination, month):
+    def fetch(origin, destination, depart_month, return_month):
         if destination not in destinations_seen:
             destinations_seen.append(destination)
         if len(destinations_seen) > 1:
@@ -108,7 +127,7 @@ def bcn_id(cur):
 def test_collector_stores_when_the_price_was_seen(cur, monkeypatch):
     monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [ROUND_TRIP]})
 
-    flights_collector.collect_destination_month(cur, bcn_id(cur), "BCN", "2030-06", new_counters())
+    flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2030-06", "2030-06", new_counters())
 
     cur.execute("SELECT price_seen_on FROM flight_price_observations")
     assert cur.fetchone()["price_seen_on"] == datetime.date(2026, 10, 4)
@@ -130,7 +149,7 @@ def test_price_already_stored_by_an_earlier_run_is_not_inserted_again(cur, monke
     monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [same_trip]})
     counters = new_counters()
 
-    flights_collector.collect_destination_month(cur, bcn_id(cur), "BCN", "2026-06", counters)
+    flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2026-06", "2026-06", counters)
 
     cur.execute("SELECT COUNT(*) AS n FROM flight_price_observations")
     assert cur.fetchone()["n"] == 1
@@ -144,7 +163,7 @@ def test_price_without_a_search_date_is_skipped_and_counted(cur, monkeypatch):
     monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [no_date, ROUND_TRIP]})
     counters = new_counters()
 
-    flights_collector.collect_destination_month(cur, bcn_id(cur), "BCN", "2030-06", counters)
+    flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2030-06", "2030-06", counters)
 
     cur.execute("SELECT price_seen_on FROM flight_price_observations")
     assert [r["price_seen_on"] for r in cur.fetchall()] == [datetime.date(2026, 10, 4)]

@@ -23,9 +23,10 @@ PRICES_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates"
 ORIGIN_IATA = "TLV"
 
 # prices_for_dates takes a calendar month (YYYY-MM), not a specific day, for
-# both departure_at/return_at -- passing the same month for both returns
-# whatever real round trips are cached within it.
-MONTH_OFFSETS = [0, 1, 2, 3, 6]
+# each of departure_at/return_at, and returns whatever real round trips are
+# cached within them. This month and the next six, with no gaps, so a trip
+# planned half a year ahead is covered as well as next month's.
+MONTH_OFFSETS = range(7)
 
 # Each result is a full round trip, so this bounds observations per call.
 # 1000 is the API's maximum. It used to be 40, which silently dropped most of
@@ -63,26 +64,31 @@ def price_seen_on(link):
         return None
 
 
-def target_months():
-    today = datetime.date.today()
-    months = []
+def month_string(today, offset):
+    month_index = today.month - 1 + offset
+    return f"{today.year + month_index // 12:04d}-{month_index % 12 + 1:02d}"
+
+
+# (depart_month, return_month) per call: each month on its own, and departing in
+# it while returning the next - a same-month query never returns a trip across
+# a month boundary (28 Nov -> 4 Dec), and those are about a quarter of the days.
+def target_month_pairs(today):
+    pairs = []
     for n in MONTH_OFFSETS:
-        month_index = today.month - 1 + n
-        year = today.year + month_index // 12
-        month = month_index % 12 + 1
-        months.append(f"{year:04d}-{month:02d}")
-    return months
+        month, next_month = month_string(today, n), month_string(today, n + 1)
+        pairs += [(month, month), (month, next_month)]
+    return pairs
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_before_retry, reraise=True)
-def fetch_round_trips(origin, destination, target_month):
+def fetch_round_trips(origin, destination, depart_month, return_month):
     resp = requests.get(
         PRICES_URL,
         params={
             "origin": origin,
             "destination": destination,
-            "departure_at": target_month,
-            "return_at": target_month,
+            "departure_at": depart_month,
+            "return_at": return_month,
             "currency": "usd",
             "token": TRAVELPAYOUTS_TOKEN,
             "marker": TRAVELPAYOUTS_MARKER,
@@ -101,11 +107,11 @@ def fetch_destinations(cur):
     return cur.fetchall()
 
 
-def collect_destination_month(cur, destination_id, destination_iata, target_month, counters):
+def collect_destination_months(cur, destination_id, destination_iata, depart_month, return_month, counters):
     try:
-        payload = fetch_round_trips(ORIGIN_IATA, destination_iata, target_month)
+        payload = fetch_round_trips(ORIGIN_IATA, destination_iata, depart_month, return_month)
     except requests.RequestException as e:
-        print(f"  ERROR fetching {ORIGIN_IATA}->{destination_iata} {target_month}: {e}")
+        print(f"  ERROR fetching {ORIGIN_IATA}->{destination_iata} {depart_month}/{return_month}: {e}")
         counters["errors"] += 1
         return
 
@@ -177,15 +183,18 @@ def main():
     with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         destinations = fetch_destinations(cur)
 
+        month_pairs = target_month_pairs(datetime.date.today())
         for dest in destinations:
-            for target_month in target_months():
-                collect_destination_month(cur, dest["destination_id"], dest["iata_code"], target_month, counters)
+            for depart_month, return_month in month_pairs:
+                collect_destination_months(
+                    cur, dest["destination_id"], dest["iata_code"], depart_month, return_month, counters
+                )
             # Commit per destination: a crash or Ctrl+C partway through a run of
-            # ~225 API calls keeps everything collected up to that point.
+            # ~1,400 API calls keeps everything collected up to that point.
             conn.commit()
 
     print(f"inserted {counters['inserted']} round-trip flight observations "
-          f"({counters['skipped_no_offer']} route/month combos had no offer, "
+          f"({counters['skipped_no_offer']} route/month-pair combos had no offer, "
           f"{counters['skipped_no_search_date']} prices had no search date, "
           f"{counters['errors']} request errors)")
 

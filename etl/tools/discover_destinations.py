@@ -35,7 +35,7 @@ def main():
     cheapest = {}
 
     for month in months_ahead(datetime.date.today(), MONTHS_AHEAD):
-        payload = fetch_round_trips(ORIGIN_IATA, None, month)
+        payload = fetch_round_trips(ORIGIN_IATA, None, month, month)
         for trip in payload.get("data", []):
             airport = trip["destination_airport"]
             trips[airport] += 1
