@@ -2,86 +2,82 @@
 
 [![CI](https://github.com/AvivE453/IL_Vacation_Budget_Estimator/actions/workflows/ci.yml/badge.svg)](https://github.com/AvivE453/IL_Vacation_Budget_Estimator/actions/workflows/ci.yml)
 
-A database course project: estimates total vacation cost (flight + hotel) for
-a traveler departing Israel, by integrating two independent public data
-sources that key destinations in incompatible ways.
+Estimates the total cost of a vacation from Israel (flights for every traveler plus hotel
+rooms for every night) across 103 destinations, and ranks them by price. It started as a
+database course project.
 
-## Data sources
+The core data problem: flight prices and hotel prices come from two independent sources that
+identify places differently. Flights use airport codes (`BCN`), hotels use city names
+(`"Barcelona"`). A hand-curated `destinations` table maps both to one internal id, and every
+query joins through it. Missing data is shown to the user, never silently treated as zero.
 
-- **Flights**: [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/) (`v3/prices_for_dates`) -- cached real-user round-trip searches by IATA origin/destination + month. Live, collected repeatedly by running the collector manually -- this is the project's time-series data.
-- **Hotels**: [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api) -- a live current-price quote per destination (free tier: 250 searches/month, run manually, not on cron). *(Originally planned against the live Hotellook API, which shut down permanently on 2025-10-15 -- confirmed via Travelpayouts' own support docs. A static CSV (Gabor's Data Analysis "hotels-europe" dataset) was used as a temporary stopgap, then removed entirely once SerpApi was found and gave full coverage across all 45 destinations of the time with no city-name-matching problem.)*
-- **Destinations**: 103 hand-picked cities (with Hebrew city and country names for the Hebrew interface, beside the English ones the outside APIs are queried with), chosen from where cached real searches out of Tel Aviv actually go (`uv run python -m etl.tools.discover_destinations`) and filtered to actual vacation destinations for Israelis.
-- **Airports**: a small curated subset (not the full OurAirports dump) of real IATA airport data.
+## How it works
 
-## Setup
+| Layer | What it does |
+|---|---|
+| **ETL** (`etl/`) | Collects flight prices from the [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/), hotel prices from [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api), and exchange rates from [Frankfurter](https://www.frankfurter.dev). Run by hand. |
+| **Database** (`sql/`) | PostgreSQL 16, raw SQL with no ORM. Flight prices are append-only, so the price history is kept. |
+| **API** (`api/`, `app/`) | FastAPI, returns JSON. Interactive docs at `/docs` while it runs. |
+| **Frontend** (`frontend/`) | React 19 + TypeScript (Vite), a Hebrew right-to-left interface. Its API types are generated from the API's OpenAPI schema. |
 
-Requires [uv](https://docs.astral.sh/uv/) (manages Python 3.12 and all dependencies) and Docker.
+## Running it
 
-1. **Start Postgres**: `docker run -d --name vacation_budget_db -e POSTGRES_USER=vacation -e POSTGRES_PASSWORD=<choose_a_password> -e POSTGRES_DB=vacation_budget -p 5433:5432 postgres:16` (or `docker compose up -d` if your Docker install has the compose plugin). Pick your own password for `POSTGRES_PASSWORD` and use the same value in `DB_URL` in your `.env` (see step 3). Host port 5433 (not Postgres's default 5432) so it can run alongside another local Postgres.
-2. **Install dependencies**: `uv sync` -- creates `.venv/` with the Python version pinned in `.python-version` and the exact package versions locked in `uv.lock`.
-3. **Configure secrets**: `cp .env.example .env`, then fill in:
-   - `DB_URL` -- matching the user/password/database from step 1.
-   - `TRAVELPAYOUTS_TOKEN` and `TRAVELPAYOUTS_MARKER` -- register free at
-     https://www.travelpayouts.com/programs/100/tools/api (needed for flights only).
-4. **Apply schema**: `uv run python -m etl.loaders.run_migrations` -- safe to rerun; it records applied files in `schema_migrations` and runs only new ones.
-5. **Load reference data**:
-   ```
-   uv run python -m etl.loaders.load_airports
-   uv run python -m etl.loaders.load_airlines
-   uv run python -m etl.loaders.load_destinations_seed
-   uv run python -m etl.loaders.refresh_exchange_rates
-   ```
-6. **Load hotel prices**: register free at https://serpapi.com and fill in `SERPAPI_KEY` in `.env`, then `uv run python -m etl.collectors.hotels_collector [--max-searches N]`. The free tier is 250 searches/month and each city costs one search (one result page, ~20 hotels), so each run first asks SerpApi's free Account API how many searches are left, then refreshes only as many cities as that and `--max-searches` (default 120) allow -- cities with no price first, then the stalest.
-7. **Run the flight collector, repeatedly:**
-   ```
-   uv run python -m etl.collectors.flights_collector
-   ```
-   The schema is designed around daily snapshots collected over several weeks; this
-   project's actual collection window was compressed to a few days due to the course
-   timeline. Rows are never overwritten. Each cached price carries the day a real search
-   saw it (`price_seen_on`), and a run only stores prices it doesn't already have -- the
-   cache keeps about a week of quotes, so re-running soon after adds almost nothing
-   instead of duplicating the same quotes under a new `observed_at`.
-8. **Run the API**: `uv run uvicorn api.main:app --reload --port 8000`, then see the
-   interactive docs at http://127.0.0.1:8000/docs. Its OpenAPI schema is also saved in
-   [api/openapi.json](api/openapi.json), which the React app's TypeScript types are generated
-   from; after changing a route or model, rerun `uv run python -m api.export_openapi` (a test
-   fails until the file matches the code), then `npm run gen:api` in `frontend/`.
-9. **Run the React frontend**: needs Node (the version in [frontend/.nvmrc](frontend/.nvmrc);
-   with nvm, `nvm use` in `frontend/`) and the API from step 8 running. In `frontend/`:
-   `npm ci` once, then `npm run dev` and visit http://localhost:5173 -- Vite passes `/api`
-   requests on to the API on port 8000. `LIVE_FLIGHT_SEARCH=off` in `.env` makes destination
-   views use collected prices only, with no call to Travelpayouts.
+Needs [uv](https://docs.astral.sh/uv/), Docker, and Node (the version in
+[frontend/.nvmrc](frontend/.nvmrc)).
 
-## Tests and lint
+### One-time setup
 
-```
-uv run pytest -v
-uv run ruff check .
+```bash
+# 1. Postgres, on host port 5433 (or `docker compose up -d`)
+docker run -d --name vacation_budget_db -e POSTGRES_USER=vacation \
+  -e POSTGRES_PASSWORD=<password> -e POSTGRES_DB=vacation_budget -p 5433:5432 postgres:16
+
+# 2. Python dependencies (uv installs Python 3.12 and the locked versions)
+uv sync
+
+# 3. Secrets: fill in DB_URL, TRAVELPAYOUTS_TOKEN/MARKER and SERPAPI_KEY (all free to register)
+cp .env.example .env
+
+# 4. Schema and reference data
+uv run python -m etl.loaders.run_migrations
+uv run python -m etl.loaders.load_airports
+uv run python -m etl.loaders.load_airlines
+uv run python -m etl.loaders.load_destinations_seed
+uv run python -m etl.loaders.refresh_exchange_rates
+
+# 5. Prices
+uv run python -m etl.collectors.hotels_collector    # costs 1 of SerpApi's 250 free monthly searches per city
+uv run python -m etl.collectors.flights_collector   # rerun to collect more; it only stores prices it doesn't have
+
+# 6. Frontend dependencies
+cd frontend && npm ci
 ```
 
-The tests never touch the dev database. Each run rebuilds a separate
-`vacation_budget_test` database on the same Postgres server from the migrations and
-the seed CSVs; each test then inserts exactly the flights, hotels and searches it needs
-and is rolled back afterwards. They need the Postgres server from step 1 running
-(locally the DB tests skip without it; in CI that's a failure).
+### Every time after that
 
-The React frontend has two more layers of tests, run from `frontend/`:
-
-```
-npm test         # component tests: Vitest + Testing Library, the API answered by MSW
-npx playwright test   # end-to-end: Chrome against Vite + FastAPI + Postgres
+```bash
+docker start vacation_budget_db                        # the container stops on reboot
+uv run uvicorn api.main:app --reload --port 8000       # terminal 1, from the repo root
+cd frontend && npm run dev                             # terminal 2 -> http://localhost:5173
 ```
 
-The component tests render the whole app in a simulated browser (jsdom) and click
-through it like a user; their API answers are typed by the generated schema, so a
-changed API breaks them at compile time. The end-to-end tests start their own API
-(`uv run python -m tests.e2e_server`) on a separate `vacation_budget_e2e` database
-rebuilt with fixed data ([tests/e2e_data.py](tests/e2e_data.py)), with live flight
-search switched off (`LIVE_FLIGHT_SEARCH=off`), so every run sees the same prices.
+After a `git pull` that changes dependencies, rerun `uv sync` (repo root) and `npm ci`
+(`frontend/`). `LIVE_FLIGHT_SEARCH=off` in `.env` turns off the one live call the API makes
+(a Travelpayouts search when you open a destination), so it uses collected prices only.
 
-CI ([GitHub Actions](.github/workflows/ci.yml)) runs on every push: `uv sync --locked`,
-ruff, the migrations and seed loaders on a fresh Postgres, then the test suite. A second
-job checks the frontend: `npm ci`, regenerates `frontend/src/api/schema.d.ts` and fails if
-it differs from the committed one, runs the component tests, then type-checks and builds
-(`npm run build`). A third runs the end-to-end tests on a fresh Postgres.
+To change the schema, add a new numbered file to [sql/migrations/](sql/migrations/) and rerun
+`run_migrations`. Never edit one that has already run. After changing an API route, rerun
+`uv run python -m api.export_openapi`, then `npm run gen:api` in `frontend/`.
+
+## Tests
+
+```bash
+uv run pytest -v          # Python: API, queries, collectors, migrations
+uv run ruff check .       # lint
+cd frontend
+npm test                  # React component tests (Vitest, API mocked with MSW)
+npx playwright test       # end-to-end, in Chrome against the real API and Postgres
+```
+
+The tests never touch the development database: each run builds its own from the migrations
+and seed files. CI ([GitHub Actions](.github/workflows/ci.yml)) runs all of them on every push.
