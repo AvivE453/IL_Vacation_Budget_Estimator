@@ -130,6 +130,12 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
             # a same-day round trip would violate chk_return_after_depart.
             counters["skipped_no_offer"] += 1
             continue
+        seen_on = price_seen_on(result.get("link"))
+        if seen_on is None:
+            # Without it uq_flight_obs_price_seen can't recognize the quote and
+            # uq_flight_obs includes observed_at, so every run would store it again.
+            counters["skipped_no_search_date"] += 1
+            continue
 
         cur.execute(
             """
@@ -156,7 +162,7 @@ def collect_destination_month(cur, destination_id, destination_iata, target_mont
                 result["price"],
                 result.get("transfers", 0),
                 result.get("airline"),
-                price_seen_on(result.get("link")),
+                seen_on,
             ),
         )
         # rowcount, not 1: ON CONFLICT DO NOTHING inserts 0 rows for a duplicate.
@@ -167,7 +173,7 @@ def main():
     if not TRAVELPAYOUTS_TOKEN:
         raise SystemExit("TRAVELPAYOUTS_TOKEN is not set -- register at travelpayouts.com and set it in .env")
 
-    counters = {"inserted": 0, "skipped_no_offer": 0, "errors": 0}
+    counters = {"inserted": 0, "skipped_no_offer": 0, "skipped_no_search_date": 0, "errors": 0}
 
     with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         destinations = fetch_destinations(cur)
@@ -181,6 +187,7 @@ def main():
 
     print(f"inserted {counters['inserted']} round-trip flight observations "
           f"({counters['skipped_no_offer']} route/month combos had no offer, "
+          f"{counters['skipped_no_search_date']} prices had no search date, "
           f"{counters['errors']} request errors)")
 
 

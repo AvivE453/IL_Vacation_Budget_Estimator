@@ -20,7 +20,7 @@ ROUND_TRIP = {
 
 
 def new_counters():
-    return {"inserted": 0, "skipped_no_offer": 0, "errors": 0}
+    return {"inserted": 0, "skipped_no_offer": 0, "skipped_no_search_date": 0, "errors": 0}
 
 
 class FakeResponse:
@@ -135,3 +135,19 @@ def test_price_already_stored_by_an_earlier_run_is_not_inserted_again(cur, monke
     cur.execute("SELECT COUNT(*) AS n FROM flight_price_observations")
     assert cur.fetchone()["n"] == 1
     assert counters["inserted"] == 0
+
+
+def test_price_without_a_search_date_is_skipped_and_counted(cur, monkeypatch):
+    # Without price_seen_on, uq_flight_obs_price_seen can't recognize the
+    # quote, and uq_flight_obs includes observed_at - so every run would store
+    # it again. Hasn't happened since the link carries search_date, but if it
+    # stops, the run says so instead of duplicating rows quietly.
+    no_date = {**ROUND_TRIP, "link": "/search/TLV0106BCN08061?t=abc&expected_price=300"}
+    monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [no_date, ROUND_TRIP]})
+    counters = new_counters()
+
+    flights_collector.collect_destination_month(cur, bcn_id(cur), "BCN", "2030-06", counters)
+
+    cur.execute("SELECT price_seen_on FROM flight_price_observations")
+    assert [r["price_seen_on"] for r in cur.fetchall()] == [datetime.date(2026, 10, 4)]
+    assert (counters["inserted"], counters["skipped_no_search_date"]) == (1, 1)

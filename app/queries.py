@@ -451,7 +451,8 @@ def get_date_grid(cur, origin_iata, destination_id, depart_date, return_date, da
 # Every option a live destination view returned, as new observations. Same
 # skip-what's-stored rule as the collector (no ON CONFLICT target: covers
 # uq_flight_obs and uq_flight_obs_price_seen), so showing the same trip again
-# adds nothing. Returns how many rows were new.
+# adds nothing - and, like the collector, an option without price_seen_on
+# isn't stored, since nothing could recognize it again. Returns how many rows were new.
 def insert_live_flight_observations(cur, destination_id, origin_iata, destination_iata, options):
     rows = [
         (
@@ -460,6 +461,7 @@ def insert_live_flight_observations(cur, destination_id, origin_iata, destinatio
             o["outbound_stops"], o["airline_code"], o["price_seen_on"],
         )
         for o in options
+        if o["price_seen_on"] is not None
     ]
     if not rows:
         return 0

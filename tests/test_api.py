@@ -678,6 +678,16 @@ def test_live_options_are_stored_once(client, cur, live):
     ]
 
 
+def test_live_option_without_a_search_date_is_shown_but_not_stored(client, cur, live):
+    # Stored, it could never be recognized again (see the collector's same rule).
+    live["options"] = [live_option(176), live_option(231, airline_code="W4", price_seen_on=None)]
+
+    response = trip(client, cur)
+
+    assert [f["airline_code"] for f in response.json()["flights"]] == ["IZ", "W4"]
+    assert [r["airline_code"] for r in stored_live_rows(cur)] == ["IZ"]
+
+
 @pytest.mark.parametrize("second_price", [176, 231], ids=["same-price", "different-price"])
 def test_same_airline_and_stops_at_different_times_are_two_flights(client, cur, live, second_price):
     # Before ROADMAP 2.5.1 neither duplicate check looked at flight times, so
