@@ -157,12 +157,11 @@ def main(max_searches=DEFAULT_MAX_SEARCHES_PER_RUN):
             cur.execute(
                 """
                 INSERT INTO hotel_prices
-                    (city_name_raw, city_name_normalized,
+                    (city_name_normalized,
                      avg_price_per_night_usd, min_price_per_night_usd, sample_size,
                      avg_price_budget_tier_usd, avg_price_luxury_tier_usd)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (city_name_normalized) DO UPDATE SET
-                    city_name_raw = EXCLUDED.city_name_raw,
                     avg_price_per_night_usd = EXCLUDED.avg_price_per_night_usd,
                     min_price_per_night_usd = EXCLUDED.min_price_per_night_usd,
                     sample_size = EXCLUDED.sample_size,
@@ -171,7 +170,6 @@ def main(max_searches=DEFAULT_MAX_SEARCHES_PER_RUN):
                     loaded_at = now()
                 """,
                 (
-                    dest["city_name"],
                     dest["hotel_data_city_key"],
                     sum(prices) / len(prices),
                     min(prices),

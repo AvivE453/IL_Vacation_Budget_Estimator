@@ -100,7 +100,8 @@ def test_every_destination_and_country_has_a_hebrew_name(cur):
         """
         SELECT d.city_name, c.country_name
         FROM destinations AS d
-        JOIN countries AS c ON c.country_code = d.country_code
+        JOIN airports AS a ON a.iata_code = d.iata_code
+        JOIN countries AS c ON c.country_code = a.country_code
         WHERE d.city_name_he IS NULL OR c.country_name_he IS NULL
         """
     )

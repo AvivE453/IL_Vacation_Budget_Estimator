@@ -1,104 +1,104 @@
-city_name,country_code,iata_code,hotel_data_city_key,city_name_he
-Barcelona,ES,BCN,barcelona,ברצלונה
-Madrid,ES,MAD,madrid,מדריד
-Rome,IT,FCO,rome,רומא
-Milan,IT,MXP,milan,מילאנו
-Athens,GR,ATH,athens,אתונה
-Thessaloniki,GR,SKG,thessaloniki,סלוניקי
-Heraklion,GR,HER,heraklion,הרקליון
-Rhodes,GR,RHO,rhodes,רודוס
-Larnaca,CY,LCA,larnaca,לרנקה
-Istanbul,TR,IST,istanbul,איסטנבול
-Prague,CZ,PRG,prague,פראג
-Budapest,HU,BUD,budapest,בודפשט
-Berlin,DE,BER,berlin,ברלין
-Munich,DE,MUC,munich,מינכן
-Amsterdam,NL,AMS,amsterdam,אמסטרדם
-Lisbon,PT,LIS,lisbon,ליסבון
-Vienna,AT,VIE,vienna,וינה
-Warsaw,PL,WAW,warsaw,ורשה
-Sofia,BG,SOF,sofia,סופיה
-Bucharest,RO,OTP,bucharest,בוקרשט
-Zurich,CH,ZRH,zurich,ציריך
-Copenhagen,DK,CPH,copenhagen,קופנהגן
-Tbilisi,GE,TBS,tbilisi,טביליסי
-Batumi,GE,BUS,batumi,בטומי
-Dubai,AE,DXB,dubai,דובאי
-Bangkok,TH,BKK,bangkok,בנגקוק
-London,GB,LHR,london,לונדון
-Paris,FR,CDG,paris,פריז
-New York,US,JFK,new york,ניו יורק
-Tokyo,JP,NRT,tokyo,טוקיו
-Seoul,KR,ICN,seoul,סיאול
-Boston,US,BOS,boston,בוסטון
-Sydney,AU,SYD,sydney,סידני
-Phuket,TH,HKT,phuket,פוקט
-Rio de Janeiro,BR,GIG,rio de janeiro,ריו דה ז'ניירו
-Colombo,LK,CMB,colombo,קולומבו
-Catania,IT,CTA,catania,קטניה
-Miami,US,MIA,miami,מיאמי
-Nice,FR,NCE,nice,ניס
-Paphos,CY,PFO,paphos,פאפוס
-Frankfurt,DE,FRA,frankfurt,פרנקפורט
-Geneva,CH,GVA,geneva,ז'נבה
-Moscow,RU,SVO,moscow,מוסקבה
-Mumbai,IN,BOM,mumbai,מומבאי
-Delhi,IN,DEL,delhi,דלהי
-Baku,AZ,GYD,baku,באקו
-Yerevan,AM,EVN,yerevan,ירוואן
-Tashkent,UZ,TAS,tashkent,טשקנט
-Samarkand,UZ,SKD,samarkand,סמרקנד
-Almaty,KZ,ALA,almaty,אלמטי
-Chisinau,MD,RMO,chisinau,קישינב
-Vilnius,LT,VNO,vilnius,וילנה
-Krakow,PL,KRK,krakow,קרקוב
-Belgrade,RS,BEG,belgrade,בלגרד
-Bratislava,SK,BTS,bratislava,ברטיסלבה
-Riga,LV,RIX,riga,ריגה
-Tivat,ME,TIV,tivat,טיבט
-Venice,IT,VCE,venice,ונציה
-Naples,IT,NAP,naples,נאפולי
-Saint Petersburg,RU,LED,saint petersburg,סנקט פטרבורג
-Sochi,RU,AER,sochi,סוצ'י
-Toronto,CA,YYZ,toronto,טורונטו
-Corfu,GR,CFU,corfu,קורפו
-Mykonos,GR,JMK,mykonos,מיקונוס
-Tirana,AL,TIA,tirana,טירנה
-Varna,BG,VAR,varna,ורנה
-Burgas,BG,BOJ,burgas,בורגס
-Podgorica,ME,TGD,podgorica,פודגוריצה
-Tallinn,EE,TLL,tallinn,טאלין
-Palermo,IT,PMO,palermo,פלרמו
-Turin,IT,TRN,turin,טורינו
-Valencia,ES,VLC,valencia,ולנסיה
-Malaga,ES,AGP,malaga,מלאגה
-Porto,PT,OPO,porto,פורטו
-Funchal,PT,FNC,funchal,פונשל
-Luxembourg City,LU,LUX,luxembourg city,לוקסמבורג
-Dusseldorf,DE,DUS,dusseldorf,דיסלדורף
-Oslo,NO,OSL,oslo,אוסלו
-Lyon,FR,LYS,lyon,ליון
-Brussels,BE,BRU,brussels,בריסל
-Stockholm,SE,ARN,stockholm,שטוקהולם
-Reykjavik,IS,KEF,reykjavik,רייקיאוויק
-Salzburg,AT,SZG,salzburg,זלצבורג
-Hong Kong,HK,HKG,hong kong,הונג קונג
-Hanoi,VN,HAN,hanoi,האנוי
-Zanzibar,TZ,ZNZ,zanzibar,זנזיבר
-Marrakech,MA,RAK,marrakech,מרקש
-Cape Town,ZA,CPT,cape town,קייפטאון
-Mahe,SC,SEZ,mahe,מאהה
-Abu Dhabi,AE,AUH,abu dhabi,אבו דאבי
-Los Angeles,US,LAX,los angeles,לוס אנג'לס
-Santorini,GR,JTR,santorini,סנטוריני
-Palma de Mallorca,ES,PMI,palma de mallorca,פלמה דה מיורקה
-Tenerife,ES,TFS,tenerife,טנריף
-Florence,IT,FLR,florence,פירנצה
-Edinburgh,GB,EDI,edinburgh,אדינבורו
-Manchester,GB,MAN,manchester,מנצ'סטר
-Basel,CH,BSL,basel,באזל
-Dublin,IE,DUB,dublin,דבלין
-Singapore,SG,SIN,singapore,סינגפור
-Koh Samui,TH,USM,koh samui,קו סמוי
-Krabi,TH,KBV,krabi,קראבי
-Antalya,TR,AYT,antalya,אנטליה
+city_name,iata_code,hotel_data_city_key,city_name_he
+Barcelona,BCN,barcelona,ברצלונה
+Madrid,MAD,madrid,מדריד
+Rome,FCO,rome,רומא
+Milan,MXP,milan,מילאנו
+Athens,ATH,athens,אתונה
+Thessaloniki,SKG,thessaloniki,סלוניקי
+Heraklion,HER,heraklion,הרקליון
+Rhodes,RHO,rhodes,רודוס
+Larnaca,LCA,larnaca,לרנקה
+Istanbul,IST,istanbul,איסטנבול
+Prague,PRG,prague,פראג
+Budapest,BUD,budapest,בודפשט
+Berlin,BER,berlin,ברלין
+Munich,MUC,munich,מינכן
+Amsterdam,AMS,amsterdam,אמסטרדם
+Lisbon,LIS,lisbon,ליסבון
+Vienna,VIE,vienna,וינה
+Warsaw,WAW,warsaw,ורשה
+Sofia,SOF,sofia,סופיה
+Bucharest,OTP,bucharest,בוקרשט
+Zurich,ZRH,zurich,ציריך
+Copenhagen,CPH,copenhagen,קופנהגן
+Tbilisi,TBS,tbilisi,טביליסי
+Batumi,BUS,batumi,בטומי
+Dubai,DXB,dubai,דובאי
+Bangkok,BKK,bangkok,בנגקוק
+London,LHR,london,לונדון
+Paris,CDG,paris,פריז
+New York,JFK,new york,ניו יורק
+Tokyo,NRT,tokyo,טוקיו
+Seoul,ICN,seoul,סיאול
+Boston,BOS,boston,בוסטון
+Sydney,SYD,sydney,סידני
+Phuket,HKT,phuket,פוקט
+Rio de Janeiro,GIG,rio de janeiro,ריו דה ז'ניירו
+Colombo,CMB,colombo,קולומבו
+Catania,CTA,catania,קטניה
+Miami,MIA,miami,מיאמי
+Nice,NCE,nice,ניס
+Paphos,PFO,paphos,פאפוס
+Frankfurt,FRA,frankfurt,פרנקפורט
+Geneva,GVA,geneva,ז'נבה
+Moscow,SVO,moscow,מוסקבה
+Mumbai,BOM,mumbai,מומבאי
+Delhi,DEL,delhi,דלהי
+Baku,GYD,baku,באקו
+Yerevan,EVN,yerevan,ירוואן
+Tashkent,TAS,tashkent,טשקנט
+Samarkand,SKD,samarkand,סמרקנד
+Almaty,ALA,almaty,אלמטי
+Chisinau,RMO,chisinau,קישינב
+Vilnius,VNO,vilnius,וילנה
+Krakow,KRK,krakow,קרקוב
+Belgrade,BEG,belgrade,בלגרד
+Bratislava,BTS,bratislava,ברטיסלבה
+Riga,RIX,riga,ריגה
+Tivat,TIV,tivat,טיבט
+Venice,VCE,venice,ונציה
+Naples,NAP,naples,נאפולי
+Saint Petersburg,LED,saint petersburg,סנקט פטרבורג
+Sochi,AER,sochi,סוצ'י
+Toronto,YYZ,toronto,טורונטו
+Corfu,CFU,corfu,קורפו
+Mykonos,JMK,mykonos,מיקונוס
+Tirana,TIA,tirana,טירנה
+Varna,VAR,varna,ורנה
+Burgas,BOJ,burgas,בורגס
+Podgorica,TGD,podgorica,פודגוריצה
+Tallinn,TLL,tallinn,טאלין
+Palermo,PMO,palermo,פלרמו
+Turin,TRN,turin,טורינו
+Valencia,VLC,valencia,ולנסיה
+Malaga,AGP,malaga,מלאגה
+Porto,OPO,porto,פורטו
+Funchal,FNC,funchal,פונשל
+Luxembourg City,LUX,luxembourg city,לוקסמבורג
+Dusseldorf,DUS,dusseldorf,דיסלדורף
+Oslo,OSL,oslo,אוסלו
+Lyon,LYS,lyon,ליון
+Brussels,BRU,brussels,בריסל
+Stockholm,ARN,stockholm,שטוקהולם
+Reykjavik,KEF,reykjavik,רייקיאוויק
+Salzburg,SZG,salzburg,זלצבורג
+Hong Kong,HKG,hong kong,הונג קונג
+Hanoi,HAN,hanoi,האנוי
+Zanzibar,ZNZ,zanzibar,זנזיבר
+Marrakech,RAK,marrakech,מרקש
+Cape Town,CPT,cape town,קייפטאון
+Mahe,SEZ,mahe,מאהה
+Abu Dhabi,AUH,abu dhabi,אבו דאבי
+Los Angeles,LAX,los angeles,לוס אנג'לס
+Santorini,JTR,santorini,סנטוריני
+Palma de Mallorca,PMI,palma de mallorca,פלמה דה מיורקה
+Tenerife,TFS,tenerife,טנריף
+Florence,FLR,florence,פירנצה
+Edinburgh,EDI,edinburgh,אדינבורו
+Manchester,MAN,manchester,מנצ'סטר
+Basel,BSL,basel,באזל
+Dublin,DUB,dublin,דבלין
+Singapore,SIN,singapore,סינגפור
+Koh Samui,USM,koh samui,קו סמוי
+Krabi,KBV,krabi,קראבי
+Antalya,AYT,antalya,אנטליה

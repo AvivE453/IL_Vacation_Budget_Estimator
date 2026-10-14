@@ -38,11 +38,11 @@ def add_hotel(cur, city_key, avg_usd, budget_usd=None, luxury_usd=None, sample_s
     cur.execute(
         """
         INSERT INTO hotel_prices
-            (city_name_raw, city_name_normalized, avg_price_per_night_usd,
+            (city_name_normalized, avg_price_per_night_usd,
              avg_price_budget_tier_usd, avg_price_luxury_tier_usd, sample_size)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s)
         """,
-        (city_key.title(), city_key, avg_usd, budget_usd, luxury_usd, sample_size),
+        (city_key, avg_usd, budget_usd, luxury_usd, sample_size),
     )
 
 

@@ -13,8 +13,8 @@ PROPERTIES = [{"rate_per_night": {"extracted_lowest": price}} for price in (80, 
 def test_refreshes_cities_without_a_price_first_then_the_oldest(cur):
     cur.execute(
         """
-        INSERT INTO hotel_prices (city_name_raw, city_name_normalized, avg_price_per_night_usd, sample_size)
-        SELECT city_name, hotel_data_city_key, 100, 20 FROM destinations WHERE is_active
+        INSERT INTO hotel_prices (city_name_normalized, avg_price_per_night_usd, sample_size)
+        SELECT hotel_data_city_key, 100, 20 FROM destinations WHERE is_active
         """
     )
     cur.execute("UPDATE hotel_prices SET loaded_at = '2020-01-01' WHERE city_name_normalized = 'rome'")

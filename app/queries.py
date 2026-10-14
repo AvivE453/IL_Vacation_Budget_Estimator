@@ -270,15 +270,9 @@ def insert_search_query(
     return cur.fetchone()["search_query_id"]
 
 
-# Logs one search_results row per destination estimate - cost rank,
-# within-budget flag, and airline, all frozen for the saved ranking (GET /api/v1/searches/{id}).
+# Logs one search_results row per destination estimate - costs, within-budget
+# flag, and airline, all frozen for the saved ranking (GET /api/v1/searches/{id}).
 def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
-    ranked = sorted(
-        (e for e in estimates if e["total_estimate_usd"] is not None),
-        key=lambda e: e["total_estimate_usd"],
-    )
-    rank_by_destination = {e["destination_id"]: i + 1 for i, e in enumerate(ranked)}
-
     rows = [
         (
             search_query_id,
@@ -287,7 +281,6 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
             e["hotel_total_usd"],
             e["total_estimate_usd"],
             e["total_estimate_usd"] is not None and float(e["total_estimate_usd"]) <= budget_amount_usd,
-            rank_by_destination.get(e["destination_id"]),
             e["airline_code"],
         )
         for e in estimates
@@ -298,11 +291,11 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
         """
         INSERT INTO search_results
             (search_query_id, destination_id, estimated_flight_usd, estimated_hotel_usd,
-             estimated_total_usd, within_budget, rank_by_cost, airline_code)
+             estimated_total_usd, within_budget, airline_code)
         VALUES %s
         """,
         rows,
-        template="(%s, %s, %s, %s, %s, %s, %s, (SELECT airline_code FROM airlines WHERE airline_code = %s))",
+        template="(%s, %s, %s, %s, %s, %s, (SELECT airline_code FROM airlines WHERE airline_code = %s))",
     )
 
 
@@ -369,7 +362,8 @@ def list_active_destinations(cur):
         """
         SELECT d.destination_id, d.city_name, c.country_name, d.city_name_he, c.country_name_he, d.iata_code
         FROM destinations AS d
-        JOIN countries AS c ON c.country_code = d.country_code
+        JOIN airports AS a ON a.iata_code = d.iata_code
+        JOIN countries AS c ON c.country_code = a.country_code
         WHERE d.is_active
         ORDER BY d.city_name
         """
@@ -388,7 +382,8 @@ def get_destination(cur, destination_id):
                hp.avg_price_luxury_tier_usd AS hotel_luxury_per_night_usd,
                CURRENT_DATE - hp.loaded_at::date AS hotel_price_age_days
         FROM destinations AS d
-        JOIN countries AS c ON c.country_code = d.country_code
+        JOIN airports AS a ON a.iata_code = d.iata_code
+        JOIN countries AS c ON c.country_code = a.country_code
         LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
         WHERE d.destination_id = %s
           AND d.is_active
@@ -510,7 +505,8 @@ def get_data_quality_report(cur):
             -- series, so its age is the only sign of how stale a price is.
             CURRENT_DATE - hp.loaded_at::date AS hotel_price_age_days
         FROM destinations AS d
-        JOIN countries AS c ON c.country_code = d.country_code
+        JOIN airports AS a ON a.iata_code = d.iata_code
+        JOIN countries AS c ON c.country_code = a.country_code
         LEFT JOIN hotel_prices AS hp ON hp.city_name_normalized = d.hotel_data_city_key
         WHERE d.is_active
         -- In the order the Hebrew page shows them; Unicode puts Hebrew letters in alphabetical order.
