@@ -47,7 +47,7 @@ _FRESH_FLIGHTS_CTES = """
         -- different connection or fare), not a price change - the cheaper one.
         ORDER BY destination_id, depart_date, return_date,
                  airline_code, number_of_stops, depart_time, return_time,
-                 price_seen_on DESC, price_amount_usd, observed_at DESC
+                 price_seen_on DESC, price_amount_usd
     ),
     fresh_flights AS (
         SELECT *
@@ -155,9 +155,11 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, 
                 depart_time AS flight_out_time, return_time AS flight_return_time,
                 airline_code, price_seen_on AS flight_seen_on
             FROM fresh_flights
-            -- The nearest dates; among their flights, the cheapest.
+            -- The nearest dates; among their flights, the cheapest. observation_id
+            -- is unique, so a tie (two airlines, same price) always breaks the same
+            -- way here and in get_collected_flight_options.
             ORDER BY destination_id, date_drift, price_amount_usd,
-                     price_seen_on DESC, observed_at DESC
+                     price_seen_on DESC, observation_id DESC
         ),
         tiers AS (
             SELECT unnest(%(hotel_tiers)s::text[]) AS hotel_tier
@@ -406,7 +408,7 @@ def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, 
         nearest_pair AS (
             SELECT depart_date, return_date
             FROM destination_flights
-            ORDER BY date_drift, price_amount_usd, price_seen_on DESC, observed_at DESC
+            ORDER BY date_drift, price_amount_usd, price_seen_on DESC, observation_id DESC
             LIMIT 1
         )
         SELECT df.depart_date, df.return_date, df.airline_code, al.airline_name, df.number_of_stops,
@@ -414,7 +416,7 @@ def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, 
         FROM destination_flights AS df
         JOIN nearest_pair AS n ON n.depart_date = df.depart_date AND n.return_date = df.return_date
         LEFT JOIN airlines AS al ON al.airline_code = df.airline_code
-        ORDER BY df.price_amount_usd, df.price_seen_on DESC, df.observed_at DESC
+        ORDER BY df.price_amount_usd, df.price_seen_on DESC, df.observation_id DESC
         """,
         {**_fresh_flights_params(origin_iata, depart_date, return_date), "destination_id": destination_id},
     )

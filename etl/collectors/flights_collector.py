@@ -1,7 +1,7 @@
 # Daily collector: pulls round-trip fares for each active destination from
 # Travelpayouts' v3/prices_for_dates endpoint and inserts a snapshot row into
-# flight_price_observations. Never upserts on route+date - every run adds new
-# rows so trend/aggregation queries over observed_at have something to work with.
+# flight_price_observations. Never upserts on route+date - every run adds the
+# prices it hasn't stored yet, so the price history is kept.
 #
 # Each API result is a complete round trip: (one combined price) ,
 # correctly-ordered departure_at/return_at, and a real airline code + flight number.

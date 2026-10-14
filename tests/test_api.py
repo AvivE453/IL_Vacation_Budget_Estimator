@@ -710,6 +710,20 @@ def test_stored_live_results_feed_the_estimate_and_the_fallback(client, cur, liv
     assert [r["airline_code"] for r in fallback] == ["W4", "LY"]  # the ranking's pick comes first
 
 
+def test_a_price_tie_picks_the_same_flight_for_the_estimate_and_the_fallback(client, cur):
+    # One collector run stores a destination's rows with one observed_at, so
+    # only a unique tie-break (observation_id) keeps the two queries agreeing.
+    seen = datetime.date(2030, 5, 20)
+    for airline in ("LY", "W4", "IZ"):
+        add_flight(cur, "BCN", DEPART, RETURN, price_usd=200, airline_code=airline, price_seen_on=seen)
+    add_hotel(cur, "BCN", avg_usd=100)
+
+    estimate_pick = estimate_all_destinations(cur, "TLV", DEPART, RETURN)[0][0]
+    fallback = get_collected_flight_options(cur, "TLV", barcelona_id(cur), DEPART, RETURN)
+
+    assert estimate_pick["airline_code"] == fallback[0]["airline_code"] == "IZ"  # the last one stored
+
+
 def test_collection_volume_counts_searches_apart_from_the_collector(client, cur, live):
     add_flight(cur, "MAD", DEPART, RETURN, price_usd=250)
     live["options"] = [live_option(176), live_option(231, airline_code="W4")]
