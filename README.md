@@ -20,6 +20,8 @@ query joins through it. Missing data is shown to the user, never silently treate
 | **API** (`api/`, `app/`) | FastAPI, returns JSON. Interactive docs at `/docs` while it runs. |
 | **Frontend** (`frontend/`) | React 19 + TypeScript (Vite), a Hebrew right-to-left interface. Its API types are generated from the API's OpenAPI schema. |
 
+How each part is designed, in more depth: [docs/database.md](docs/database.md).
+
 ## Running it
 
 Needs [uv](https://docs.astral.sh/uv/), Docker, and Node (the version in
