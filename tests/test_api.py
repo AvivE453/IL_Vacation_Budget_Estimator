@@ -514,7 +514,7 @@ def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=280, airline_code="IZ",
                price_seen_on=datetime.date(2030, 5, 3))
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=250, airline_code="W4", number_of_stops=1,
-               price_seen_on=datetime.date(2030, 5, 3))
+               return_stops=0, price_seen_on=datetime.date(2030, 5, 3))
     # Cheapest, but seen before the newest price for these dates: not an option.
     add_flight(cur, "BCN", nearest_depart, RETURN, price_usd=200, airline_code="U2",
                price_seen_on=datetime.date(2030, 5, 2))
@@ -528,8 +528,8 @@ def test_trip_falls_back_to_the_nearest_collected_dates(client, cur, live, live_
     assert body["flight_out_date"] == nearest_depart.isoformat()
     assert [(f["airline_code"], f["price_amount"]) for f in body["flights"]] == [("W4", 250.0), ("IZ", 280.0)]
     w4 = body["flights"][0]
-    assert w4["outbound_stops"] == 1
-    assert [w4[k] for k in ("return_stops", "outbound_minutes", "return_minutes", "booking_url")] == [None] * 4
+    assert (w4["outbound_stops"], w4["return_stops"]) == (1, 0)
+    assert [w4[k] for k in ("outbound_minutes", "return_minutes", "booking_url")] == [None] * 3
     assert body["hotel"]["nights"] == 6
 
 
@@ -657,8 +657,8 @@ def test_date_grid_without_flights_or_destination(client, cur):
 
 def stored_live_rows(cur):
     cur.execute(
-        "SELECT airline_code, price_amount_usd, number_of_stops, depart_time FROM flight_price_observations"
-        " WHERE source = 'live_search' ORDER BY price_amount_usd"
+        "SELECT airline_code, price_amount_usd, number_of_stops, return_stops, depart_time"
+        " FROM flight_price_observations WHERE source = 'live_search' ORDER BY price_amount_usd"
     )
     return cur.fetchall()
 
@@ -670,9 +670,9 @@ def test_live_options_are_stored_once(client, cur, live):
     trip(client, cur)  # the same quotes again: nothing new
 
     rows = stored_live_rows(cur)
-    assert [(r["airline_code"], r["price_amount_usd"], r["number_of_stops"]) for r in rows] == [
-        ("IZ", 176, 0),
-        ("W4", 231, 0),
+    assert [(r["airline_code"], r["price_amount_usd"], r["number_of_stops"], r["return_stops"]) for r in rows] == [
+        ("IZ", 176, 0, 1),
+        ("W4", 231, 0, 1),
     ]
 
 

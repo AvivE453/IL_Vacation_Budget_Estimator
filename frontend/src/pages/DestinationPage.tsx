@@ -176,7 +176,7 @@ export default function DestinationPage() {
           </label>
           <p className="note">
             המחירים להלוך-חזור, בלי מזוודה.
-            {t.source === "collected" && " במחירים שנאספו אין פרטים על העצירות ומשך הטיסה בחזור."}
+            {t.source === "collected" && " במחירים שנאספו אין פרטים על משך הטיסה."}
           </p>
           <div className="table-scroll">
             <table className="flights-table">

@@ -78,7 +78,7 @@ def _from_collected(row):
         "airline_name": row["airline_name"],
         "flight_number": None,
         "outbound_stops": row["number_of_stops"],
-        "return_stops": None,
+        "return_stops": row["return_stops"],
         "outbound_minutes": None,
         "return_minutes": None,
         "price_usd": float(row["price_amount_usd"]),

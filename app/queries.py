@@ -412,7 +412,7 @@ def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, 
             LIMIT 1
         )
         SELECT df.depart_date, df.return_date, df.airline_code, al.airline_name, df.number_of_stops,
-               df.depart_time, df.return_time, df.price_amount_usd, df.price_seen_on
+               df.return_stops, df.depart_time, df.return_time, df.price_amount_usd, df.price_seen_on
         FROM destination_flights AS df
         JOIN nearest_pair AS n ON n.depart_date = df.depart_date AND n.return_date = df.return_date
         LEFT JOIN airlines AS al ON al.airline_code = df.airline_code
@@ -456,7 +456,7 @@ def insert_live_flight_observations(cur, destination_id, origin_iata, destinatio
         (
             destination_id, origin_iata, destination_iata, o["depart_date"], o["return_date"],
             o["depart_time"], o["return_time"], o["price_usd"], o["price_usd"],
-            o["outbound_stops"], o["airline_code"], o["price_seen_on"],
+            o["outbound_stops"], o["return_stops"], o["airline_code"], o["price_seen_on"],
         )
         for o in options
         if o["price_seen_on"] is not None
@@ -471,12 +471,12 @@ def insert_live_flight_observations(cur, destination_id, origin_iata, destinatio
         INSERT INTO flight_price_observations
             (destination_id, origin_iata, destination_iata, depart_date, return_date,
              depart_time, return_time, price_amount, price_amount_usd,
-             number_of_stops, airline_code, price_seen_on, currency_code, source)
+             number_of_stops, return_stops, airline_code, price_seen_on, currency_code, source)
         VALUES %s
         ON CONFLICT DO NOTHING
         """,
         rows,
-        template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'USD', 'live_search')",
+        template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'USD', 'live_search')",
         page_size=len(rows),
     )
     return cur.rowcount

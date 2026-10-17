@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 from api.deps import Cursor, SessionId
 from api.errors import NOT_FOUND
 from api.routes.estimates import HotelTier
+from app.currency import from_usd
 from app.queries import get_recent_searches, get_search, get_search_results
 from app.search import display_currency_and_rate
-from etl.common.currency import from_usd
 
 router = APIRouter()
 

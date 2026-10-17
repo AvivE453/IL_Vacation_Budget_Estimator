@@ -31,6 +31,12 @@ def load_destinations(cur):
                 row["city_name_he"] or None,
             ),
         )
+    # The CSV is the list of destinations: one removed from it stops being
+    # collected, but its row stays, so its price history isn't lost.
+    cur.execute(
+        "UPDATE destinations SET is_active = (iata_code = ANY(%s))",
+        ([row["iata_code"] for row in rows],),
+    )
     return len(rows)
 
 

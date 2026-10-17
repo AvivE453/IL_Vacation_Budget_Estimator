@@ -1,7 +1,9 @@
 # Deletes search_queries rows (and their search_results, via ON DELETE
-# CASCADE) older than RETENTION_DAYS. RETENTION_DAYS matches the session
-# cookie's own lifetime (app/main.py) - once a session that old has expired,
-# its rows are unreachable from any browser forever, so keeping them is dead weight.
+# CASCADE) older than RETENTION_DAYS, so /history keeps the last 30 days.
+# That's also the session cookie's lifetime (SESSION_MAX_AGE in api/deps.py),
+# counted from the last visit: a browser that stayed away that long has a new
+# session and can't reach its old rows anyway, while one that keeps coming
+# back sees only its own last 30 days.
 #
 # Run with: uv run python -m etl.loaders.cleanup_old_searches
 

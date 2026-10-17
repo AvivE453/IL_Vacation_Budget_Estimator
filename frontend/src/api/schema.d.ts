@@ -436,7 +436,7 @@ export interface components {
             outbound_stops: number | null;
             /**
              * Return Stops
-             * @description null when the option comes from collected data
+             * @description null on collected prices stored before 2026-10-17
              */
             return_stops: number | null;
             /**

@@ -14,13 +14,14 @@ ROUND_TRIP = {
     "return_at": "2030-06-08T18:00:00+03:00",
     "price": 300,
     "transfers": 0,
+    "return_transfers": 1,
     "airline": "LY",
     "link": "/search/TLV0106BCN08061?t=abc&search_date=04102026&expected_price=300",
 }
 
 
 def new_counters():
-    return {"inserted": 0, "skipped_no_offer": 0, "skipped_no_search_date": 0, "errors": 0}
+    return {"inserted": 0, "skipped_no_offer": 0, "skipped_no_search_date": 0, "errors": 0, "hit_results_limit": 0}
 
 
 class FakeResponse:
@@ -50,6 +51,37 @@ def test_rate_limited_request_waits_for_the_window_to_reset(monkeypatch):
 
     assert payload == {"data": [ROUND_TRIP]}
     assert slept == [7]
+
+
+def test_server_error_is_retried(monkeypatch):
+    responses = iter([FakeResponse(503), FakeResponse(200, body={"data": [ROUND_TRIP]})])
+    monkeypatch.setattr(flights_collector.requests, "get", lambda *args, **kwargs: next(responses))
+    monkeypatch.setattr(flights_collector.fetch_round_trips.retry, "sleep", lambda seconds: None)
+
+    assert flights_collector.fetch_round_trips("TLV", "BCN", "2030-06", "2030-06") == {"data": [ROUND_TRIP]}
+
+
+def test_bad_token_fails_without_retrying(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        flights_collector.requests, "get", lambda *args, **kwargs: calls.append(1) or FakeResponse(401)
+    )
+    monkeypatch.setattr(flights_collector.fetch_round_trips.retry, "sleep", lambda seconds: None)
+
+    with pytest.raises(requests.HTTPError):
+        flights_collector.fetch_round_trips("TLV", "BCN", "2030-06", "2030-06")
+    assert len(calls) == 1
+
+
+def test_call_that_returns_the_results_limit_is_counted(cur, monkeypatch):
+    monkeypatch.setattr(flights_collector, "RESULTS_PER_CALL", 2)
+    other_trip = {**ROUND_TRIP, "price": 350}
+    monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [ROUND_TRIP, other_trip]})
+    counters = new_counters()
+
+    flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2030-06", "2030-06", counters)
+
+    assert (counters["inserted"], counters["hit_results_limit"]) == (2, 1)
 
 
 def test_months_cover_trips_that_return_the_next_month():
@@ -124,13 +156,25 @@ def bcn_id(cur):
     return cur.fetchone()["destination_id"]
 
 
-def test_collector_stores_when_the_price_was_seen(cur, monkeypatch):
+def test_collector_stores_when_the_price_was_seen_and_the_stops_each_way(cur, monkeypatch):
     monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: {"data": [ROUND_TRIP]})
 
     flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2030-06", "2030-06", new_counters())
 
-    cur.execute("SELECT price_seen_on FROM flight_price_observations")
-    assert cur.fetchone()["price_seen_on"] == datetime.date(2026, 10, 4)
+    cur.execute("SELECT price_seen_on, number_of_stops, return_stops FROM flight_price_observations")
+    assert cur.fetchone() == {"price_seen_on": datetime.date(2026, 10, 4), "number_of_stops": 0, "return_stops": 1}
+
+
+def test_only_a_call_with_no_results_counts_as_no_offer(cur, monkeypatch):
+    same_day = {**ROUND_TRIP, "return_at": "2030-06-01T22:00:00+03:00"}
+    answers = iter([{"data": []}, {"data": [ROUND_TRIP, same_day]}])
+    monkeypatch.setattr(flights_collector, "fetch_round_trips", lambda *args: next(answers))
+    counters = new_counters()
+
+    for _ in range(2):
+        flights_collector.collect_destination_months(cur, bcn_id(cur), "BCN", "2030-06", "2030-06", counters)
+
+    assert (counters["skipped_no_offer"], counters["inserted"]) == (1, 1)
 
 
 def test_price_already_stored_by_an_earlier_run_is_not_inserted_again(cur, monkeypatch):

@@ -116,7 +116,7 @@ test("when the live search has nothing for these dates, it says so and which col
   expect(note).toHaveTextContent("מוצגים מחירים שנאספו לתאריכים הקרובים: 8.11.2026 – 14.11.2026.");
   expect(note).toHaveTextContent("התאים הירוקים במפת החום למטה הם תאריכים שיש להם מחירים.");
   expect(note).not.toHaveTextContent("נכשל"); // an empty answer isn't a failure
-  // The collector keeps the outbound stops only - no return stops, durations or booking link.
+  // No durations or booking link on collected prices, and no return stops on ones stored before 2026-10-17.
   expect(cellTexts(bodyRows(flightsTable())[0]).slice(3, 5)).toEqual(["0 / -", "- / -"]);
   expect(within(flightsTable()).queryByRole("link")).not.toBeInTheDocument();
 });

@@ -6,19 +6,19 @@
 
 def add_flight(
     cur, destination_iata, depart_date, return_date, price_usd,
-    airline_code=None, observed_at=None, price_seen_on=None, number_of_stops=None,
+    airline_code=None, observed_at=None, price_seen_on=None, number_of_stops=None, return_stops=None,
 ):
     cur.execute(
         """
         INSERT INTO flight_price_observations
             (destination_id, origin_iata, destination_iata, depart_date, return_date,
              price_amount, currency_code, price_amount_usd, airline_code, observed_at, price_seen_on,
-             number_of_stops)
+             number_of_stops, return_stops)
         SELECT destination_id, 'TLV', iata_code, %(depart)s, %(return)s,
                %(price)s, 'USD', %(price)s, %(airline)s, COALESCE(%(observed_at)s, now()),
                -- Unless a test says otherwise, seen the day it was collected.
                COALESCE(%(seen_on)s, COALESCE(%(observed_at)s, now())::date),
-               %(stops)s
+               %(stops)s, %(return_stops)s
         FROM destinations
         WHERE iata_code = %(iata)s
         """,
@@ -31,6 +31,7 @@ def add_flight(
             "observed_at": observed_at,
             "seen_on": price_seen_on,
             "stops": number_of_stops,
+            "return_stops": return_stops,
         },
     )
     assert cur.rowcount == 1, f"no seeded destination with IATA code {destination_iata}"

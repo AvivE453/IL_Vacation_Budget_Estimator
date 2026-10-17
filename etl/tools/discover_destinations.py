@@ -14,27 +14,21 @@ import csv
 import datetime
 from collections import defaultdict
 
-from etl.collectors.flights_collector import ORIGIN_IATA, fetch_round_trips
+from etl.collectors.flights_collector import ORIGIN_IATA, fetch_round_trips, month_string
 from etl.loaders.load_destinations_seed import SEED_PATH
 
 MONTHS_AHEAD = 12
 
 
-def months_ahead(today, n):
-    months = []
-    for offset in range(n):
-        index = today.month - 1 + offset
-        months.append(f"{today.year + index // 12:04d}-{index % 12 + 1:02d}")
-    return months
-
-
 def main():
-    seeded = {row["iata_code"] for row in csv.DictReader(open(SEED_PATH, newline="", encoding="utf-8"))}
+    with open(SEED_PATH, newline="", encoding="utf-8") as f:
+        seeded = {row["iata_code"] for row in csv.DictReader(f)}
     trips = defaultdict(int)
     months_seen = defaultdict(set)
     cheapest = {}
 
-    for month in months_ahead(datetime.date.today(), MONTHS_AHEAD):
+    today = datetime.date.today()
+    for month in (month_string(today, offset) for offset in range(MONTHS_AHEAD)):
         payload = fetch_round_trips(ORIGIN_IATA, None, month, month)
         for trip in payload.get("data", []):
             airport = trip["destination_airport"]

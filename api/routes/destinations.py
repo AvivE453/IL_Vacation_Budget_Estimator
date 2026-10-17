@@ -7,10 +7,10 @@ from pydantic import BaseModel, Field, model_validator
 from api.deps import Cursor
 from api.errors import NOT_FOUND
 from api.routes.estimates import Currency, Rooms, Travelers, check_rooms, require_known_origin
+from app.currency import from_usd
 from app.queries import DATE_GRID_DAYS, HOTEL_TIERS, get_date_grid, get_destination, list_active_destinations
 from app.search import display_currency_and_rate
 from app.trip import trip_options
-from etl.common.currency import from_usd
 
 router = APIRouter()
 
@@ -71,7 +71,7 @@ class FlightOption(BaseModel):
     depart_time: datetime.time | None = Field(description="Local time at the departure airport")
     return_time: datetime.time | None = Field(description="Local time at the return flight's airport")
     outbound_stops: int | None
-    return_stops: int | None = Field(description="null when the option comes from collected data")
+    return_stops: int | None = Field(description="null on collected prices stored before 2026-10-17")
     outbound_minutes: int | None = Field(description="null when the option comes from collected data")
     return_minutes: int | None = Field(description="null when the option comes from collected data")
     price_amount: float = Field(description="One traveler's round trip, without checked baggage")

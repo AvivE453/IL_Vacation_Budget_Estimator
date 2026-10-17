@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 import psycopg2.extras
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from etl.common.config import TRAVELPAYOUTS_MARKER, TRAVELPAYOUTS_TOKEN
 from etl.common.db import get_conn
@@ -49,6 +49,15 @@ def wait_before_retry(retry_state):
     return backoff_on_other_errors(retry_state)
 
 
+# Only errors the next attempt could get past: the rate-limit window resets,
+# the server recovers, the network comes back. Anything else, like a 401 for a
+# bad token, would fail the same way every time.
+def is_worth_retrying(error):
+    if isinstance(error, requests.HTTPError):
+        return error.response.status_code == 429 or error.response.status_code >= 500
+    return isinstance(error, (requests.ConnectionError, requests.Timeout))
+
+
 # The day an Aviasales user actually saw this price. It isn't a documented
 # field - it's the search_date=DDMMYYYY parameter of the result's search
 # link - so anything missing or malformed gives None rather than failing the run.
@@ -80,7 +89,7 @@ def target_month_pairs(today):
     return pairs
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_before_retry, reraise=True)
+@retry(retry=retry_if_exception(is_worth_retrying), stop=stop_after_attempt(3), wait=wait_before_retry, reraise=True)
 def fetch_round_trips(origin, destination, depart_month, return_month):
     resp = requests.get(
         PRICES_URL,
@@ -119,6 +128,11 @@ def collect_destination_months(cur, destination_id, destination_iata, depart_mon
     if not results:
         counters["skipped_no_offer"] += 1
         return
+    if len(results) == RESULTS_PER_CALL:
+        # The API stops at the limit, so there are probably more trips than it returned.
+        print(f"  WARNING {ORIGIN_IATA}->{destination_iata} {depart_month}/{return_month} "
+              f"returned {RESULTS_PER_CALL} results, the most one call returns")
+        counters["hit_results_limit"] += 1
 
     currency = (payload.get("currency") or "usd").upper()
 
@@ -133,9 +147,7 @@ def collect_destination_months(cur, destination_id, destination_iata, depart_mon
         if not depart_date or not return_date:
             continue  # one-way result
         if return_date <= depart_date:
-            # a same-day round trip would violate chk_return_after_depart.
-            counters["skipped_no_offer"] += 1
-            continue
+            continue  # a same-day round trip would violate chk_return_after_depart
         seen_on = price_seen_on(result.get("link"))
         if seen_on is None:
             # The column is NOT NULL: the seen-on day is what tells a new price
@@ -148,9 +160,9 @@ def collect_destination_months(cur, destination_id, destination_iata, depart_mon
             INSERT INTO flight_price_observations
                 (destination_id, origin_iata, destination_iata, depart_date, return_date,
                  depart_time, return_time,
-                 price_amount, currency_code, price_amount_usd, number_of_stops, airline_code,
+                 price_amount, currency_code, price_amount_usd, number_of_stops, return_stops, airline_code,
                  price_seen_on)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             -- Skips a price this run or an earlier one already stored (uq_flight_obs).
             ON CONFLICT DO NOTHING
             """,
@@ -166,6 +178,7 @@ def collect_destination_months(cur, destination_id, destination_iata, depart_mon
                 currency,
                 result["price"],
                 result.get("transfers", 0),
+                result.get("return_transfers"),
                 result.get("airline"),
                 seen_on,
             ),
@@ -178,7 +191,9 @@ def main():
     if not TRAVELPAYOUTS_TOKEN:
         raise SystemExit("TRAVELPAYOUTS_TOKEN is not set -- register at travelpayouts.com and set it in .env")
 
-    counters = {"inserted": 0, "skipped_no_offer": 0, "skipped_no_search_date": 0, "errors": 0}
+    counters = {
+        "inserted": 0, "skipped_no_offer": 0, "skipped_no_search_date": 0, "errors": 0, "hit_results_limit": 0,
+    }
 
     with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         destinations = fetch_destinations(cur)
@@ -196,7 +211,8 @@ def main():
     print(f"inserted {counters['inserted']} round-trip flight observations "
           f"({counters['skipped_no_offer']} route/month-pair combos had no offer, "
           f"{counters['skipped_no_search_date']} prices had no search date, "
-          f"{counters['errors']} request errors)")
+          f"{counters['errors']} request errors, "
+          f"{counters['hit_results_limit']} calls hit the {RESULTS_PER_CALL}-result limit)")
 
 
 if __name__ == "__main__":

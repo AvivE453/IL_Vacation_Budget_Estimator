@@ -1,6 +1,6 @@
 import pytest
 
-from etl.common.currency import from_usd, get_usd_per_unit, to_usd
+from app.currency import from_usd, get_usd_per_unit, to_usd
 
 
 class FakeCursor:
