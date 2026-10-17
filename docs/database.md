@@ -66,7 +66,8 @@ collectors pick it up on their next run.
 ### `flight_price_observations`: append-only
 
 One row means *a price we saw for one round trip*: TLV to a destination, on a departure and a
-return date, with an airline, a number of stops, local departure and return times, and a price.
+return date, with an airline, the number of stops each way, local departure and return times, and a
+price. Return stops (`return_stops`) are stored since 2026-10-17; older rows have NULL there.
 
 Rows are never updated or deleted by the collector. When a price changes, a new row is added.
 Keeping every observation is what lets a search find the nearest available dates, and shows how a
