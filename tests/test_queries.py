@@ -4,13 +4,13 @@
 import datetime
 
 from app.queries import (
-    count_active_destinations,
+    get_collected_flight_options,
     get_collection_volume,
     get_data_quality_report,
     get_date_grid,
     list_origin_airports,
 )
-from tests.factories import add_flight, add_hotel
+from tests.factories import add_flight, add_hotel, count_active_destinations
 
 DEPART = datetime.date(2030, 6, 1)
 RETURN = datetime.date(2030, 6, 8)
@@ -20,13 +20,6 @@ def test_list_origin_airports_returns_only_israeli_airports(cur):
     rows = list_origin_airports(cur)
 
     assert [r["iata_code"] for r in rows] == ["TLV"]
-
-
-def test_count_active_destinations_ignores_inactive(cur):
-    before = count_active_destinations(cur)
-    cur.execute("UPDATE destinations SET is_active = false WHERE iata_code = 'BCN'")
-
-    assert count_active_destinations(cur) == before - 1
 
 
 def test_data_quality_report_counts_per_destination(cur):
@@ -91,6 +84,18 @@ def test_date_grid_uses_the_rankings_freshness_rule(cur):
         (DEPART, RETURN - datetime.timedelta(days=1), 180.0),
         (DEPART, RETURN, 260.0),
     ]
+
+
+def test_flights_that_differ_only_in_stops_on_the_way_back_are_both_options(cur):
+    seen = datetime.date(2030, 5, 1)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="LY", number_of_stops=0, return_stops=0,
+               price_seen_on=seen)
+    add_flight(cur, "BCN", DEPART, RETURN, price_usd=250, airline_code="LY", number_of_stops=0, return_stops=1,
+               price_seen_on=seen)
+
+    rows = get_collected_flight_options(cur, "TLV", barcelona_id(cur), DEPART, RETURN)
+
+    assert [(r["return_stops"], float(r["price_amount_usd"])) for r in rows] == [(1, 250.0), (0, 300.0)]
 
 
 # The frontend is in Hebrew: every seeded city and country needs its Hebrew

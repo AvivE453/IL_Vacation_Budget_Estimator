@@ -142,7 +142,6 @@ export function savedSearch(overrides: Partial<Schemas["SavedSearch"]> = {}): Sc
         airline_code: "AF",
         airline_name: "Air France",
         estimated_total_amount: 3500,
-        within_budget: true,
       },
     ],
     ...overrides,

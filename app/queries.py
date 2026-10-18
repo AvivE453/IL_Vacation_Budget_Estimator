@@ -10,13 +10,13 @@ MAX_DATE_DRIFT_DAYS = 4
 # departure and return dates: 7 x 7 date pairs.
 DATE_GRID_DAYS = 3
 
-# The flights a trip can use, shared by estimate_all_destinations and
+# The flights a trip can use, shared by estimate_all_tiers and
 # get_collected_flight_options so the ranking and the destination view pick
 # the same flight. For each destination, within MAX_DATE_DRIFT_DAYS of the
 # requested dates:
-#   1. each distinct flight (airline, stops, times) once, at the price seen
-#      most recently - an older price for the same flight is outdated. Those
-#      four don't pin down one offer (the same times can come with another
+#   1. each distinct flight (airline, stops each way, times) once, at the price
+#      seen most recently - an older price for the same flight is outdated. Those
+#      don't pin down one offer (the same times can come with another
 #      connection or fare), so on the same seen-on day the cheapest wins;
 #   2. only the flights seen on the newest seen-on day for the same trip -
 #      the newer price wins even when pricier. The collector gets only the
@@ -39,14 +39,14 @@ _FRESH_FLIGHTS_CTES = """
     ),
     latest_per_flight AS (
         SELECT DISTINCT ON (destination_id, depart_date, return_date,
-                            airline_code, number_of_stops, depart_time, return_time)
+                            airline_code, number_of_stops, return_stops, depart_time, return_time)
                *,
                MAX(price_seen_on) OVER (PARTITION BY destination_id, depart_date, return_date) AS trip_newest_seen_on
         FROM flight_candidates
         -- Same flight seen on the same day at two prices: two offers (a
         -- different connection or fare), not a price change - the cheaper one.
         ORDER BY destination_id, depart_date, return_date,
-                 airline_code, number_of_stops, depart_time, return_time,
+                 airline_code, number_of_stops, return_stops, depart_time, return_time,
                  price_seen_on DESC, price_amount_usd
     ),
     fresh_flights AS (
@@ -78,54 +78,29 @@ def list_origin_airports(cur):
     return cur.fetchall()
 
 
-def count_active_destinations(cur):
-    cur.execute("SELECT COUNT(*) AS n FROM destinations WHERE is_active")
-    return cur.fetchone()["n"]
-
-
 HOTEL_TIERS = ("budget", "average", "luxury")
 
 
-# For every active destination, finds the nearest-dated flight and its
-# hotel price. matched_nights/hotel cost use the matched flight's own
-# dates, not the requested nights - date-matching doesn't preserve trip length.
+# Ranks every active destination by the whole party's cost, for every hotel
+# tier from one query: {tier: (estimates, has_missing_data)}. Each tier gets
+# its own verdicts below, since its price decides all of them.
 #
-# Global exact/approximate rule: if any destination got an exact date
-# match, only exact matches are returned; only if none did, falls back to
-# nearest-available dates for everyone.
+# - Hotel nights come from the matched flight, not the request: the nearest
+#   dates don't keep the trip's length, and one total must describe one trip.
+# - If any destination matched the dates exactly, only exact matches are
+#   kept, otherwise everyone's nearest dates - never a mix, because a real
+#   price next to one for other dates reads as comparable when it isn't.
+# - A tier price a city doesn't have (too few hotels to split) is missing
+#   data, not the average in disguise.
+# - has_missing_data is True only when NOT ONE destination has both a flight
+#   and a hotel: it tells "no data for these dates" apart from "the budget or
+#   the exact-date rule excluded them all". "Some destination lacks data"
+#   would be true on almost every search with ~100 destinations.
 #
-# hotel_tier picks budget/average/luxury pricing. NULL when a city's
-# sample was too small to split into tiers - real missing data, not a
-# fallback average.
-#
-# Prices are for the whole party: travelers flights (Travelpayouts prices are
-# per passenger) plus rooms x nights (SerpApi's are for a room for two adults,
-# its default occupancy - the collector doesn't set one).
-#
-# Returns (estimates, has_missing_data): estimates is the viable destinations
-# (flight + hotel both on file, within budget if given); has_missing_data is
-# True only when NOT ONE active destination has both a flight and a hotel on
-# file - i.e. the dataset itself came up empty for these dates, before budget
-# or exact-date filtering ever ran. That's the distinction the caller needs
-# when estimates ends up empty: "genuinely no data" (this flag is True) vs
-# "we had candidates, your budget or the exact-date rule excluded them all"
-# (this flag is False). It is NOT "some destination is missing data" - with 45
-# destinations that would be True almost always, and useless to act on.
-def estimate_all_destinations(
-    cur, origin_iata, depart_date, return_date, budget_amount_usd=None, hotel_tier="average", travelers=1, rooms=1,
-):
-    if hotel_tier not in HOTEL_TIERS:
-        raise ValueError(f"hotel_tier must be one of {HOTEL_TIERS}, got {hotel_tier!r}")
-    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, [hotel_tier], travelers, rooms)
-    return _apply_estimate_rules(rows, depart_date, return_date, budget_amount_usd)
-
-
-# Same rules as estimate_all_destinations, for every hotel tier from one
-# query: {tier: (estimates, has_missing_data)}. Each tier gets its own
-# missing-data, budget and exact-date verdicts, since a tier's price decides
-# all three.
+# Flight prices are per passenger (Travelpayouts), hotel prices per room for
+# two adults (SerpApi's default occupancy - the collector doesn't set one).
 def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount_usd=None, travelers=1, rooms=1):
-    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, list(HOTEL_TIERS), travelers, rooms)
+    rows = _priced_candidates(cur, origin_iata, depart_date, return_date, travelers, rooms)
     return {
         tier: _apply_estimate_rules(
             [r for r in rows if r["hotel_tier"] == tier], depart_date, return_date, budget_amount_usd
@@ -134,17 +109,18 @@ def estimate_all_tiers(cur, origin_iata, depart_date, return_date, budget_amount
     }
 
 
-# One row per active destination per requested hotel tier, cheapest first.
+# One row per active destination per hotel tier, cheapest first.
 #
-# Uses WITH (CTEs) purely for readability over nested subqueries - on
-# Postgres 16 a single-use CTE inlines the same way no performance difference.
+# WITH (CTEs) for readability over nested subqueries: since Postgres 12 a CTE
+# used once is inlined, so it costs nothing. tiers, used twice, is computed
+# once - three rows.
 #
 # LEFT JOIN, not JOIN, in the scored CTE below: a destination with no
 # matching flight/hotel must still appear (as NULL) so flight_data_missing/
 # hotel_data_missing can actually be computed for it. Filtering on those
 # flags (and on budget) happens in Python (_apply_estimate_rules), not in
 # this SQL, precisely so the missing-data rows survive long enough to be counted.
-def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, travelers, rooms):
+def _priced_candidates(cur, origin_iata, depart_date, return_date, travelers, rooms):
     cur.execute(
         f"""
         WITH {_FRESH_FLIGHTS_CTES},
@@ -216,7 +192,7 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, 
         """,
         {
             **_fresh_flights_params(origin_iata, depart_date, return_date),
-            "hotel_tiers": hotel_tiers,
+            "hotel_tiers": list(HOTEL_TIERS),
             "travelers": travelers,
             "rooms": rooms,
         },
@@ -226,20 +202,15 @@ def _priced_candidates(cur, origin_iata, depart_date, return_date, hotel_tiers, 
 
 # The Python half of the estimate rules, for one tier's rows.
 def _apply_estimate_rules(rows, depart_date, return_date, budget_amount_usd):
+    # The order is the point. has_missing_data is decided before the budget
+    # filter, or every over-budget search would look like missing data. The
+    # exact-date rule runs after it, or an exact match over budget would drop
+    # the nearest-date trips within it and leave nothing.
     viable = [r for r in rows if not r["flight_data_missing"] and not r["hotel_data_missing"]]
-    # True only when NOT ONE active destination has both a flight and a hotel
-    # match at all. This is what lets an empty result be told apart from
-    # budget/exact-date filtering, where viable is non-empty but every
-    # candidate in it still gets excluded downstream.
-    #
-    # Must stay ABOVE the budget filter below: computing it afterwards would
-    # make every over-budget search look like missing data.
     has_missing_data = len(viable) == 0
     if budget_amount_usd is not None:
         viable = [r for r in viable if r["total_estimate_usd"] <= budget_amount_usd]
 
-    # If any destination got an exact date match, keep only exact matches;
-    # otherwise fall back to everyone's nearest-available date.
     exact_matches = [
         r for r in viable
         if r["flight_out_date"] == depart_date and r["flight_return_date"] == return_date
@@ -269,9 +240,9 @@ def insert_search_query(
     return cur.fetchone()["search_query_id"]
 
 
-# Logs one search_results row per destination estimate - costs, within-budget
-# flag, and airline, all frozen for the saved ranking (GET /api/v1/searches/{id}).
-def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
+# Logs one search_results row per destination estimate - costs and airline,
+# frozen for the saved ranking (GET /api/v1/searches/{id}).
+def insert_search_results(cur, search_query_id, estimates):
     rows = [
         (
             search_query_id,
@@ -279,7 +250,6 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
             e["flight_total_usd"],
             e["hotel_total_usd"],
             e["total_estimate_usd"],
-            e["total_estimate_usd"] is not None and float(e["total_estimate_usd"]) <= budget_amount_usd,
             e["airline_code"],
         )
         for e in estimates
@@ -290,16 +260,19 @@ def insert_search_results(cur, search_query_id, estimates, budget_amount_usd):
         """
         INSERT INTO search_results
             (search_query_id, destination_id, estimated_flight_usd, estimated_hotel_usd,
-             estimated_total_usd, within_budget, airline_code)
+             estimated_total_usd, airline_code)
         VALUES %s
         """,
         rows,
-        template="(%s, %s, %s, %s, %s, %s, (SELECT airline_code FROM airlines WHERE airline_code = %s))",
+        # search_results.airline_code has an FK to airlines, and some collected
+        # flights carry codes that aren't in it (H3, BER, ...): those are stored
+        # as NULL instead of failing the whole search's insert.
+        template="(%s, %s, %s, %s, %s, (SELECT airline_code FROM airlines WHERE airline_code = %s))",
     )
 
 
 # Scoped to one anonymous browser session - there are no user accounts,
-# so this is the only thing that keeps /history from mixing every visitor's 
+# so this is the only thing that keeps /history from mixing every visitor's
 # searches together.
 def get_recent_searches(cur, session_id, limit=20):
     cur.execute(
@@ -333,15 +306,14 @@ def get_search(cur, search_query_id, session_id):
     return cur.fetchone()
 
 
-# ranked alternatives within budget for a past search, shown
-# in the original search's budget_currency. Scoped to session_id like
+# A past search's saved results, ranked by total. Scoped to session_id like
 # get_recent_searches: ids are sequential, so without it any browser could
 # read any other browser's search just by changing the number in the URL.
 def get_search_results(cur, search_query_id, session_id):
     cur.execute(
         """
-        SELECT sr.destination_id, d.city_name, d.city_name_he, sr.estimated_total_usd, sr.within_budget,
-               sq.budget_currency, sq.hotel_tier, sq.exact_dates_only, al.airline_name, sr.airline_code,
+        SELECT sr.destination_id, d.city_name, d.city_name_he, sr.estimated_total_usd,
+               al.airline_name, sr.airline_code,
                RANK() OVER (ORDER BY sr.estimated_total_usd ASC) AS cost_rank
         FROM search_results AS sr
         JOIN destinations AS d ON d.destination_id = sr.destination_id
@@ -394,7 +366,7 @@ def get_destination(cur, destination_id):
 
 # The collected flight options for one destination on the date pair nearest
 # the request, cheapest first - the same flights, by the same rules, that
-# estimate_all_destinations chooses from, so its pick is the first row here.
+# estimate_all_tiers chooses from, so its pick is the first row here.
 # Empty beyond MAX_DATE_DRIFT_DAYS.
 def get_collected_flight_options(cur, origin_iata, destination_id, depart_date, return_date):
     cur.execute(
@@ -490,8 +462,8 @@ def get_airline_names(cur, airline_codes):
     return {r["airline_code"]: r["airline_name"] for r in cur.fetchall()}
 
 
-# per-destination observation coverage + missing-data flags
-# across both integrated sources.
+# Every active destination, including those with nothing collected: the page
+# exists to show the gaps.
 def get_data_quality_report(cur):
     cur.execute(
         """
@@ -516,9 +488,8 @@ def get_data_quality_report(cur):
     return cur.fetchall()
 
 
-# daily collection volume, justifies the "realistic data volume" claim.
 # The collector's rows and those stored from users' destination views are
-# counted apart: only the first is the scheduled collection.
+# counted apart: only the first is collection; the second grows with use.
 def get_collection_volume(cur):
     cur.execute(
         """

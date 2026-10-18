@@ -15,8 +15,15 @@ from api.main import app
 from app import live_flights as live_flights_module
 from app import trip as trip_module
 from app.db import PoolExhausted
-from app.queries import count_active_destinations, estimate_all_destinations, get_collected_flight_options
-from tests.factories import add_airline, add_exchange_rate, add_flight, add_hotel, add_saved_search
+from app.queries import estimate_all_tiers, get_collected_flight_options
+from tests.factories import (
+    add_airline,
+    add_exchange_rate,
+    add_flight,
+    add_hotel,
+    add_saved_search,
+    count_active_destinations,
+)
 
 DEPART = datetime.date(2030, 6, 1)
 RETURN = datetime.date(2030, 6, 8)
@@ -385,7 +392,6 @@ def test_saved_search_is_shown_in_its_budget_currency(client, cur):
             "airline_code": None,
             "airline_name": None,
             "estimated_total_amount": 4000.0,  # $1000 at 0.25 USD per ILS
-            "within_budget": True,
         }
     ]
 
@@ -703,7 +709,7 @@ def test_stored_live_results_feed_the_estimate_and_the_fallback(client, cur, liv
     live["options"] = [live_option(559, airline_code="LY"), live_option(176, airline_code="W4")]
     trip(client, cur)
 
-    estimate_pick = estimate_all_destinations(cur, "TLV", DEPART, RETURN)[0][0]
+    estimate_pick = estimate_all_tiers(cur, "TLV", DEPART, RETURN)["average"][0][0]
     fallback = get_collected_flight_options(cur, "TLV", barcelona_id(cur), DEPART, RETURN)
 
     assert (estimate_pick["airline_code"], estimate_pick["flight_total_usd"]) == ("W4", 176)
@@ -718,7 +724,7 @@ def test_a_price_tie_picks_the_same_flight_for_the_estimate_and_the_fallback(cli
         add_flight(cur, "BCN", DEPART, RETURN, price_usd=200, airline_code=airline, price_seen_on=seen)
     add_hotel(cur, "BCN", avg_usd=100)
 
-    estimate_pick = estimate_all_destinations(cur, "TLV", DEPART, RETURN)[0][0]
+    estimate_pick = estimate_all_tiers(cur, "TLV", DEPART, RETURN)["average"][0][0]
     fallback = get_collected_flight_options(cur, "TLV", barcelona_id(cur), DEPART, RETURN)
 
     assert estimate_pick["airline_code"] == fallback[0]["airline_code"] == "IZ"  # the last one stored

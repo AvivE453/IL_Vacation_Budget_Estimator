@@ -64,10 +64,7 @@ class DestinationEstimate(BaseModel):
     flight_total_amount: float = Field(description="Every traveler's round trip")
     hotel_total_amount: float = Field(description="Every room, for matched_nights")
     total_estimate_amount: float = Field(description="Flights + hotel, for the whole party")
-    flight_seen_on: datetime.date = Field(
-        description="The day a real search last saw this flight price - or, for prices collected before"
-        " that was recorded, the day we collected it"
-    )
+    flight_seen_on: datetime.date = Field(description="The day a real Aviasales search last saw this flight price")
     hotel_price_age_days: int = Field(description="Days since the city's hotel prices were collected")
 
 

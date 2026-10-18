@@ -541,7 +541,7 @@
           "observations_collected": {
             "type": "integer",
             "title": "Observations Collected",
-            "description": "Rows the scheduled collector added"
+            "description": "Rows the collector added"
           },
           "observations_from_searches": {
             "type": "integer",
@@ -859,7 +859,7 @@
             "type": "string",
             "format": "date",
             "title": "Flight Seen On",
-            "description": "The day a real search last saw this flight price - or, for prices collected before that was recorded, the day we collected it"
+            "description": "The day a real Aviasales search last saw this flight price"
           },
           "hotel_price_age_days": {
             "type": "integer",
@@ -1359,10 +1359,6 @@
           "estimated_total_amount": {
             "type": "number",
             "title": "Estimated Total Amount"
-          },
-          "within_budget": {
-            "type": "boolean",
-            "title": "Within Budget"
           }
         },
         "type": "object",
@@ -1373,8 +1369,7 @@
           "city_name_he",
           "airline_code",
           "airline_name",
-          "estimated_total_amount",
-          "within_budget"
+          "estimated_total_amount"
         ],
         "title": "SavedResult"
       },

@@ -38,9 +38,9 @@ def _get_pool():
         return _pool
 
 
-# Only a dict cursor is exposed here (unlike etl/common/db.py, which also
-# has a raw get_conn()) - every route wants the same thing: one ready
-# cursor with dict-style row access.
+# Only a cursor is handed out here, with dict-style row access - every route
+# wants just that. etl/common/db.py's get_conn() hands out the connection
+# instead, because the collectors commit partway through a run.
 @contextmanager
 def get_cursor():
     if not _slots.acquire(timeout=POOL_WAIT_SECONDS):

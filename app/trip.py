@@ -33,7 +33,7 @@ def trip_options(cur, origin_iata, destination, depart_date, return_date):
     source, live_status, flights = _live_or_collected(cur, origin_iata, destination, depart_date, return_date)
     if flights:
         depart_date, return_date = flights[0]["depart_date"], flights[0]["return_date"]
-    # Hotel nights follow the flight that was found, as in estimate_all_destinations.
+    # Hotel nights follow the flight that was found, as in estimate_all_tiers.
     nights = (return_date - depart_date).days
     return TripOptions(
         source=source,

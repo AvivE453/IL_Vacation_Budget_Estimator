@@ -78,11 +78,16 @@ def add_saved_search(cur, session_id, destination_iatas=("BCN",), budget_currenc
     search_query_id = cur.fetchone()["search_query_id"]
     cur.execute(
         """
-        INSERT INTO search_results (search_query_id, destination_id, estimated_total_usd, within_budget)
-        SELECT %s, destination_id, 1000, true
+        INSERT INTO search_results (search_query_id, destination_id, estimated_total_usd)
+        SELECT %s, destination_id, 1000
         FROM destinations
         WHERE iata_code = ANY(%s)
         """,
         (search_query_id, list(destination_iatas)),
     )
     return search_query_id
+
+
+def count_active_destinations(cur):
+    cur.execute("SELECT COUNT(*) AS n FROM destinations WHERE is_active")
+    return cur.fetchone()["n"]

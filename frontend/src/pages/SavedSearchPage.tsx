@@ -62,7 +62,6 @@ export default function SavedSearchPage() {
                 <th>חברה</th>
                 <th>מלון</th>
                 <th>סך הכול, לכל הנוסעים</th>
-                <th>בתקציב?</th>
               </tr>
             </thead>
             <tbody>
@@ -73,11 +72,6 @@ export default function SavedSearchPage() {
                   <td>{result.airline_name ?? result.airline_code ?? "-"}</td>
                   <td>{TIER_NAMES[data.hotel_tier]}</td>
                   <td className="total">{money(result.estimated_total_amount, data.currency)}</td>
-                  <td>
-                    <span className={result.within_budget ? "tag tag-yes" : "tag tag-no"}>
-                      {result.within_budget ? "כן" : "לא"}
-                    </span>
-                  </td>
                 </tr>
               ))}
             </tbody>

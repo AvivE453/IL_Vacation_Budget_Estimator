@@ -36,7 +36,6 @@ class SavedResult(BaseModel):
     airline_code: str | None
     airline_name: str | None
     estimated_total_amount: float
-    within_budget: bool
 
 
 class SavedSearch(SearchSummary):

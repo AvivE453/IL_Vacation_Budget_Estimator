@@ -170,7 +170,7 @@ export interface components {
             day: string;
             /**
              * Observations Collected
-             * @description Rows the scheduled collector added
+             * @description Rows the collector added
              */
             observations_collected: number;
             /**
@@ -332,7 +332,7 @@ export interface components {
             /**
              * Flight Seen On
              * Format: date
-             * @description The day a real search last saw this flight price - or, for prices collected before that was recorded, the day we collected it
+             * @description The day a real Aviasales search last saw this flight price
              */
             flight_seen_on: string;
             /**
@@ -538,8 +538,6 @@ export interface components {
             airline_name: string | null;
             /** Estimated Total Amount */
             estimated_total_amount: number;
-            /** Within Budget */
-            within_budget: boolean;
         };
         /** SavedSearch */
         SavedSearch: {

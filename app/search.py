@@ -43,7 +43,7 @@ def run_search(
         budget_amount, budget_currency, hotel_tier, exact[hotel_tier], travelers, rooms,
     )
     if budget_amount_usd is not None:
-        insert_search_results(cur, search_query_id, per_tier[hotel_tier][0], budget_amount_usd)
+        insert_search_results(cur, search_query_id, per_tier[hotel_tier][0])
 
     if usd_per_unit is not None:
         display_currency, budget_amount_display = budget_currency, budget_amount

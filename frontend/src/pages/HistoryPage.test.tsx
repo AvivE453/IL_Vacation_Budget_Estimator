@@ -53,7 +53,7 @@ test("a saved search shows the ranking saved at the time", async () => {
   expect(await screen.findByRole("heading", { name: "TLV, 7.11.2026 – 14.11.2026" })).toBeVisible();
   expect(screen.getByText("ההערכות האלה התבססו על טיסות בתאריכים המדויקים.")).toBeVisible();
   expect(bodyRows(screen.getByRole("table")).map(cellTexts)).toEqual([
-    ["1", "פריז", "Air France", "ממוצע", "3,500 ₪", "כן"],
+    ["1", "פריז", "Air France", "ממוצע", "3,500 ₪"],
   ]);
 });
 

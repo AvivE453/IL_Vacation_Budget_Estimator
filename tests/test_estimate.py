@@ -1,15 +1,13 @@
-# Characterization tests for estimate_all_destinations: they lock in its
-# current behavior (see AGENTS.md for why each rule exists) so later refactors
-# - the FastAPI move in particular - can't change it silently.
+# Characterization tests for estimate_all_tiers: they lock in each estimate
+# rule (why each exists: the comment above estimate_all_tiers) so a refactor
+# can't change one silently.
 
 import datetime
 
 import pytest
 
 from app.queries import (
-    HOTEL_TIERS,
     MAX_DATE_DRIFT_DAYS,
-    estimate_all_destinations,
     estimate_all_tiers,
 )
 from tests.factories import add_flight, add_hotel
@@ -22,8 +20,9 @@ def days(n):
     return datetime.timedelta(days=n)
 
 
+# One tier's (estimates, has_missing_data).
 def estimate(cur, budget_usd=None, hotel_tier="average"):
-    return estimate_all_destinations(cur, "TLV", DEPART, RETURN, budget_usd, hotel_tier)
+    return estimate_all_tiers(cur, "TLV", DEPART, RETURN, budget_usd)[hotel_tier]
 
 
 def cities(estimates):
@@ -190,11 +189,6 @@ def test_tier_missing_from_small_sample_is_missing_data_not_average(cur):
     assert cities(estimate(cur, hotel_tier="average")[0]) == ["Barcelona"]
 
 
-def test_unknown_hotel_tier_is_rejected(cur):
-    with pytest.raises(ValueError):
-        estimate(cur, hotel_tier="premium")
-
-
 def test_unknown_airline_code_keeps_the_row(cur):
     add_flight(cur, "BCN", DEPART, RETURN, price_usd=300, airline_code="H3")
     add_hotel(cur, "BCN", avg_usd=100)
@@ -205,21 +199,7 @@ def test_unknown_airline_code_keeps_the_row(cur):
     assert row["airline_name"] is None
 
 
-# --- all tiers at once (estimate_all_tiers) ----------------------------------
-
-
-def test_each_tier_matches_estimating_that_tier_alone(cur):
-    add_flight(cur, "BCN", DEPART, RETURN, price_usd=300)
-    add_flight(cur, "MAD", DEPART + days(1), RETURN, price_usd=200)
-    add_flight(cur, "FCO", DEPART, RETURN, price_usd=900)
-    add_hotel(cur, "BCN", avg_usd=100, budget_usd=60, luxury_usd=250)
-    add_hotel(cur, "MAD", avg_usd=80, budget_usd=None, luxury_usd=None, sample_size=5)
-    add_hotel(cur, "FCO", avg_usd=120, budget_usd=70, luxury_usd=300)
-
-    all_tiers = estimate_all_tiers(cur, "TLV", DEPART, RETURN, 2500)
-
-    for tier in HOTEL_TIERS:
-        assert all_tiers[tier] == estimate(cur, budget_usd=2500, hotel_tier=tier)
+# --- tiers side by side -------------------------------------------------------
 
 
 def test_tiers_get_their_own_budget_and_missing_data_verdicts(cur):
