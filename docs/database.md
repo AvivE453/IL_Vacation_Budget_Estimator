@@ -125,7 +125,7 @@ hotel search per user search would use up the monthly quota.
 | Table | One row is | Holds |
 |---|---|---|
 | `search_queries` | One search a user ran | Origin, dates, budget and currency, hotel tier, travelers, rooms, and whether the results were exact-date matches |
-| `search_results` | One destination in that search's results | Flight, hotel and total estimate in USD, whether it fit the budget, and the airline |
+| `search_results` | One destination in that search's results | Flight, hotel and total estimate in USD, and the airline |
 
 - **History without accounts.** `session_id` is a random UUID kept in a cookie for 30 days from
   the last visit. A browser's history shows only its own searches, and another browser's search
