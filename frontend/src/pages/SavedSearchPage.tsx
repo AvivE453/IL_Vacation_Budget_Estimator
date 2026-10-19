@@ -51,7 +51,8 @@ export default function SavedSearchPage() {
       )}
 
       {data.results.length === 0 ? (
-        <p>כל היעדים היו מעל התקציב בחיפוש הזה, ולכן לא נשמר דירוג.</p>
+        // Whether the budget or missing data emptied it isn't stored, so the message names both.
+        <p>לא נשמר דירוג לחיפוש הזה: אף יעד לא נכנס לתקציב, או שלא היו לנו מחירי טיסה ומלון לתאריכים האלה.</p>
       ) : (
         <div className="table-scroll">
           <table>

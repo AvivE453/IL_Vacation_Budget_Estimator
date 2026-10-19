@@ -12,7 +12,6 @@ import {
   daysSince,
   duration,
   formatDate,
-  type HotelTier,
   money,
   nights,
   nightsBetween,
@@ -51,7 +50,8 @@ export default function DestinationPage() {
     travelers: Number(searchParams.get("travelers") ?? 1),
     rooms: Number(searchParams.get("rooms") ?? 1),
   };
-  const tier = (searchParams.get("tier") ?? "average") as HotelTier;
+  // The API never sees the tier, so a hand-edited URL is checked here.
+  const tier = TIERS.find((option) => option === searchParams.get("tier")) ?? "average";
   const budgetParam = searchParams.get("budget");
   const budget = budgetParam === null ? null : Number(budgetParam);
   const path = { destination_id: destinationId };
@@ -110,9 +110,11 @@ export default function DestinationPage() {
         <h1>
           {cityName(t.destination)}, {countryName(t.destination)}
         </h1>
+        {/* The origin comes after the dates and the party, as in EstimateResults:
+            a date or a number right after "TLV," would join its left-to-right run. */}
         <p>
-          יציאה מ-{query.origin_iata}, {formatDate(query.depart_date)} – {formatDate(query.return_date)} (
-          {nights(requestedNights)}), {travelers(query.travelers)} ב{rooms(query.rooms)}
+          {formatDate(query.depart_date)} – {formatDate(query.return_date)} ({nights(requestedNights)}),{" "}
+          {travelers(query.travelers)} ב{rooms(query.rooms)}, יציאה מ-{query.origin_iata}
           {budget !== null && `, תקציב ${money(budget, query.currency)}`}
         </p>
       </div>
@@ -238,6 +240,8 @@ export default function DestinationPage() {
         </section>
       )}
 
+      {/* A new key per trip: picking a cell re-centers the grid on it, instead of
+          keeping how far the arrows moved it. */}
       <DateGrid
         key={`${query.depart_date}|${query.return_date}`}
         destinationId={destinationId}

@@ -57,11 +57,12 @@ test("a saved search shows the ranking saved at the time", async () => {
   ]);
 });
 
-test("a search where every destination was over budget is found, not a 404", async () => {
+test("a search with no saved ranking is found, not a 404", async () => {
   server.use(http.get("/api/v1/searches/41", () => HttpResponse.json(savedSearch({ results: [] }))));
   renderApp("/history/41");
 
-  expect(await screen.findByText(/כל היעדים היו מעל התקציב/)).toBeVisible();
+  // Over budget or missing data - which one isn't stored, so it doesn't blame the budget.
+  expect(await screen.findByText(/לא נשמר דירוג לחיפוש הזה/)).toHaveTextContent("או שלא היו לנו מחירי טיסה ומלון");
 });
 
 test("another browser's search is not found after one request, without retries", async () => {

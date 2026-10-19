@@ -100,6 +100,14 @@ test("a tier with no hotel price says so", async () => {
   expect(screen.getByText("אין לנו מחיר למלון יוקרתי בעיר הזו.")).toBeVisible();
 });
 
+test("an unknown tier in the URL falls back to the average hotel", async () => {
+  answer(trip());
+  renderApp(TRIP_URL.replace("tier=average", "tier=cheap"));
+
+  expect(await screen.findByText("(900 ₪ ללילה)")).toBeVisible();
+  expect(screen.getByRole("button", { name: "מלון ממוצע" })).toHaveAttribute("aria-pressed", "true");
+});
+
 test("when the live search has nothing for these dates, it says so and which collected dates it shows", async () => {
   answer(
     trip({

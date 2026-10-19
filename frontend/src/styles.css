@@ -6,6 +6,8 @@
   --sky: #38bdf8;
   --sky-light: #e0f4ff;
   --green: #16a34a;
+  /* Green text and white-on-green need this one: --green is 3.3:1 on white, under WCAG AA's 4.5. */
+  --green-dark: #15803d;
   --green-light: #dcfce7;
   --white: #ffffff;
   --bg: #f3f9fd;
@@ -106,7 +108,8 @@ nav a.active {
   margin: 1.5rem 0;
   padding: 2.75rem 2rem;
   border-radius: calc(var(--radius) * 1.5);
-  background: linear-gradient(120deg, var(--blue) 0%, var(--sky) 65%, var(--green) 130%);
+  /* Darker than --sky and --green, so the white text stays readable (4.5:1) across the whole gradient. */
+  background: linear-gradient(120deg, var(--blue) 0%, #0369a1 65%, var(--green-dark) 130%);
   color: var(--white);
   box-shadow: var(--shadow);
 }
@@ -162,13 +165,13 @@ nav a.active {
 }
 
 .btn-go {
-  background: var(--green);
+  background: var(--green-dark);
   font-size: 1.1rem;
   padding: 0.85rem 2.2rem;
 }
 
 .btn-go:hover {
-  background: #15803d;
+  background: #166534;
   transform: translateY(-1px);
 }
 
@@ -317,7 +320,7 @@ fieldset.field {
 
 .chips button:hover,
 .chips button[aria-pressed="true"] {
-  background: var(--sky);
+  background: var(--blue);
   color: var(--white);
 }
 
@@ -326,7 +329,7 @@ fieldset.field {
   padding: 0.15rem 0.7rem;
   border-radius: 999px;
   background: var(--green-light);
-  color: var(--green);
+  color: var(--green-dark);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -397,7 +400,7 @@ fieldset.field {
 
 .tag-fresh {
   background: var(--green-light);
-  color: var(--green);
+  color: var(--green-dark);
 }
 
 .tag-missing {
@@ -447,7 +450,7 @@ tbody tr:hover {
 
 .total {
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-dark);
   font-size: 1.05rem;
 }
 

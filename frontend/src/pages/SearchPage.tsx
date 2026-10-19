@@ -63,7 +63,7 @@ export default function SearchPage() {
       )}
 
       {estimate.error && (
-        <div className="error">
+        <div className="error" role="alert">
           {errors.length > 0 ? (
             <ul>
               {errors.map((message) => (

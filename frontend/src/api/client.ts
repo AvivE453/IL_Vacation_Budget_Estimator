@@ -45,6 +45,8 @@ const FIELD_NAMES: Record<string, string> = {
   budget_amount: "התקציב",
   budget_currency: "המטבע",
   hotel_tier: "רמת המלון",
+  travelers: "מספר הנוסעים",
+  rooms: "מספר החדרים",
 };
 
 // The field-by-field messages of a 422, e.g. "התקציב: Input should be greater

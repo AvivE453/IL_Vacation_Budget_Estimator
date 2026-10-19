@@ -585,7 +585,7 @@ export interface components {
             currency: string;
             /**
              * Results
-             * @description Empty when every destination was over budget
+             * @description Empty when no destination fit the budget, none had both a flight and a hotel price, or the currency had no rate
              */
             results: components["schemas"]["SavedResult"][];
         };

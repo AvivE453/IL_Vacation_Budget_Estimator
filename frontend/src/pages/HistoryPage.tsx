@@ -43,7 +43,7 @@ export default function HistoryPage() {
             <tbody>
               {data.map((search, index) => (
                 <tr key={search.search_id}>
-                  {/* Numbered per browser, oldest = 1, rather than by the global id. */}
+                  {/* Numbered down the list shown (the latest 20), oldest = 1, rather than by the global id. */}
                   <td>
                     <Link to={`/history/${search.search_id}`}>{data.length - index}</Link>
                   </td>

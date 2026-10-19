@@ -41,7 +41,10 @@ class SavedResult(BaseModel):
 class SavedSearch(SearchSummary):
     exact_dates_only: bool | None = Field(description="null for searches saved before this was recorded")
     currency: str = Field(description="Amounts are in the search's budget currency, or USD if it has no rate")
-    results: list[SavedResult] = Field(description="Empty when every destination was over budget")
+    results: list[SavedResult] = Field(
+        description="Empty when no destination fit the budget, none had both a flight and a hotel price,"
+        " or the currency had no rate"
+    )
 
 
 # This browser's recent searches, newest first.

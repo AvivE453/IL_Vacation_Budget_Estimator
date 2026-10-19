@@ -6,6 +6,7 @@ import {
   cityName,
   crowdedRoomNote,
   daysSince,
+  destinationCount,
   formatDate,
   type HotelTier,
   money,
@@ -46,12 +47,14 @@ export default function EstimateResults({ request, response }: Props) {
     <section className="card">
       <h2>
         {chosen.destinations.length > 0
-          ? `${chosen.destinations.length} יעדים ${budgetFiltered ? "בתקציב שלך" : ""}`
+          ? `${destinationCount(chosen.destinations.length)}${budgetFiltered ? " בתקציב שלך" : ""}`
           : "לא נמצאו יעדים"}
       </h2>
+      {/* The origin comes after the dates and the party: a date or a number right
+          after "TLV," would join its left-to-right run and read as "יציאה מ-2". */}
       <p className="note">
-        {formatDate(request.depart_date)} – {formatDate(request.return_date)} ({nights(requestedNights)}), יציאה מ-
-        {request.origin_iata}, {travelers(travelerCount)} ב{rooms(roomCount)}
+        {formatDate(request.depart_date)} – {formatDate(request.return_date)} ({nights(requestedNights)}),{" "}
+        {travelers(travelerCount)} ב{rooms(roomCount)}, יציאה מ-{request.origin_iata}
         {budgetFiltered && `, תקציב ${money(response.budget_amount!, currency)}`}
       </p>
       {!budgetFiltered && (

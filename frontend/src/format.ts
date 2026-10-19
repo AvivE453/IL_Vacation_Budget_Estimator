@@ -112,6 +112,10 @@ export function rooms(count: number): string {
   return count === 1 ? "חדר אחד" : `${count} חדרים`;
 }
 
+export function destinationCount(count: number): string {
+  return count === 1 ? "יעד אחד" : `${count} יעדים`;
+}
+
 // A room's price is for two adults (SerpApi's default occupancy): say so
 // when more people share a room, since an extra bed may cost more.
 export function crowdedRoomNote(travelerCount: number, roomCount: number): string | null {

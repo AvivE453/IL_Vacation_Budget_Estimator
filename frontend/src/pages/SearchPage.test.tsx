@@ -159,7 +159,7 @@ test("the ranking shows the totals, with how fresh each price is", async () => {
   await search(user);
 
   const table = await screen.findByRole("table");
-  expect(screen.getByRole("heading", { name: "1 יעדים בתקציב שלך" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "יעד אחד בתקציב שלך" })).toBeVisible();
   expect(bodyRows(table).map(cellTexts)).toEqual([
     [
       "פריז",
