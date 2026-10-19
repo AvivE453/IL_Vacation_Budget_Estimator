@@ -173,12 +173,13 @@ trip at $800 and leave nothing. `tests/test_estimate.py` locks in each rule.
 
 A destination's airline code is stored as `NULL` when it isn't in `airlines` (some collected
 flights carry codes that aren't), because `search_results.airline_code` has a foreign key. With
-no rate on file for the currency, the search still runs, unfiltered and in USD, but isn't saved.
+no rate on file for the currency, the search still runs, unfiltered and in USD; it's saved to
+history, but without its results.
 
 Every history query filters by `session_id`: search ids are sequential, so without it any browser
 could read another's search by changing the number in the URL. A saved search is read from
-`search_queries` first, so one where everything was over budget (no saved results) is still
-found. The rank is computed when read (`RANK()`, so ties share a place), and the amounts are
+`search_queries` first, so one with no saved results (everything over budget, or no prices for
+those dates) is still found. The rank is computed when read (`RANK()`, so ties share a place), and the amounts are
 shown in the search's currency at today's rate.
 
 ## The destination view
