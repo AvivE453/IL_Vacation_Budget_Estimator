@@ -20,7 +20,7 @@ query joins through it. Missing data is shown to the user, never silently treate
 | **API** (`api/`, `app/`) | FastAPI, returns JSON. Interactive docs at `/docs` while it runs. |
 | **Frontend** (`frontend/`) | React 19 + TypeScript (Vite), a Hebrew right-to-left interface. Its API types are generated from the API's OpenAPI schema. |
 
-How each part is designed, in more depth: [docs/database.md](docs/database.md), [docs/etl.md](docs/etl.md), [docs/api.md](docs/api.md), [docs/frontend.md](docs/frontend.md).
+How each part is designed, in more depth: [docs/database.md](docs/database.md), [docs/etl.md](docs/etl.md), [docs/api.md](docs/api.md), [docs/frontend.md](docs/frontend.md), [docs/testing.md](docs/testing.md).
 
 ## Running it
 
@@ -83,3 +83,4 @@ npx playwright test       # end-to-end, in Chrome against the real API and Postg
 
 The tests never touch the development database: each run builds its own from the migrations
 and seed files. CI ([GitHub Actions](.github/workflows/ci.yml)) runs all of them on every push.
+How the tests are built: [docs/testing.md](docs/testing.md).

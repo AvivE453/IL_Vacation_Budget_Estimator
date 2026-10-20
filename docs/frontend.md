@@ -193,7 +193,7 @@ npx playwright test    # end to end in Chrome, against the real API and a separa
 
 The component tests render the whole app at a URL ([src/test/renderApp.tsx](../frontend/src/test/renderApp.tsx))
 with the time zone pinned to `Asia/Jerusalem`, so local-versus-UTC date bugs show up on any
-machine.
+machine. How both kinds are set up: [testing.md](testing.md).
 
 ## Known limitations
 
