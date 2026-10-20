@@ -51,6 +51,8 @@ test("a destination's view falls back to collected data and its date grid picks 
   const flightRow = page.getByRole("row", { name: /Arkia/ });
   await expect(flightRow.getByRole("cell", { name: "ש׳ 1.6", exact: true })).toBeVisible();
   await expect(flightRow.getByRole("cell", { name: "ש׳ 8.6", exact: true })).toBeVisible();
+  // tests/e2e_data.py: seen two days before the run.
+  await expect(flightRow).toContainText("נראה לפני 2 ימים");
 
   await expect(page.getByText(/יש לנו מחירים ל-4 מתוך 49 צירופי תאריכים/)).toBeVisible();
   // The cheapest flight on file nearby: $210 = 840 ILS, out 3 days later and back a day early.

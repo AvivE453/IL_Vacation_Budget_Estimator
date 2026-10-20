@@ -266,6 +266,19 @@ test("a 422 shows what's wrong with each field", async () => {
   expect(await screen.findByText("התקציב: Input should be greater than 0")).toBeVisible();
 });
 
+test("a failed search says so", async () => {
+  server.use(
+    http.post("/api/v1/estimates", () =>
+      HttpResponse.json({ detail: "Server busy, try again shortly" }, { status: 503 }),
+    ),
+  );
+  const { user } = renderApp("/");
+  await fillDatesAndBudget(user);
+  await search(user);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("החיפוש נכשל: HTTP 503");
+});
+
 test("a specific destination opens its view instead of ranking every one", async () => {
   const sent = answerEstimate(estimateResponse());
   const tripQueries: URLSearchParams[] = [];

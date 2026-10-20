@@ -10,7 +10,9 @@ from tests.factories import add_airline, add_exchange_rate, add_flight, add_hote
 
 DEPART = datetime.date(2030, 6, 1)
 RETURN = datetime.date(2030, 6, 8)
-SEEN_ON = datetime.date(2030, 5, 20)
+# Unlike the trip dates, a price is always seen in the past: a fixed future
+# date showed as "seen -1309 days ago". The database is rebuilt every run.
+SEEN_ON = datetime.date.today() - datetime.timedelta(days=2)
 
 
 def add_e2e_data(cur):

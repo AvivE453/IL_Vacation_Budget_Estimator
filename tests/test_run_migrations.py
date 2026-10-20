@@ -82,12 +82,13 @@ def test_existing_untracked_schema_is_recorded_not_rerun(empty_db):
 
 def test_only_new_migration_runs(empty_db, migrations_copy):
     migrate(empty_db, migrations_copy)
-    (migrations_copy / "006_new_table.sql").write_text("CREATE TABLE new_table (id INT);")
+    # Numbered past any real migration, so it's added at the end like a real new one.
+    (migrations_copy / "998_new_table.sql").write_text("CREATE TABLE new_table (id INT);")
 
     recorded, applied = migrate(empty_db, migrations_copy)
 
     assert recorded == []
-    assert applied == ["006_new_table.sql"]
+    assert applied == ["998_new_table.sql"]
     assert _table_exists(empty_db, "new_table")
 
 

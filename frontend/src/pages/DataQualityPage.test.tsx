@@ -46,3 +46,18 @@ test("shows coverage per destination, gaps included, and the daily volume", asyn
   ]);
   expect(bodyRows(volume).map(cellTexts)).toEqual([["7.10.2026", "9312", "12"]]);
 });
+
+test("a busy API is retried, and if it stays busy the page says so", async () => {
+  let requests = 0;
+  server.use(
+    http.get("/api/v1/data-quality", () => {
+      requests += 1;
+      return HttpResponse.json({ detail: "Server busy, try again shortly" }, { status: 503 });
+    }),
+  );
+
+  renderApp("/data-quality");
+
+  expect(await screen.findByText("לא הצלחנו לטעון את דוח איכות הנתונים: HTTP 503")).toBeVisible();
+  expect(requests).toBe(4); // the first try and shouldRetry's three retries
+});

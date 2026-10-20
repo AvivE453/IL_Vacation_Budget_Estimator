@@ -85,6 +85,7 @@ def add_saved_search(cur, session_id, destination_iatas=("BCN",), budget_currenc
         """,
         (search_query_id, list(destination_iatas)),
     )
+    assert cur.rowcount == len(destination_iatas), f"not every IATA code in {destination_iatas} is a seeded destination"
     return search_query_id
 
 

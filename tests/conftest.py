@@ -6,7 +6,7 @@
 # back afterwards - so tests never see each other's rows or any dev data.
 #
 # The database is left in place after the run so it can be inspected; the
-# next run drops it first.
+# next run drops it first, disconnecting any session still open on it.
 
 import os
 
@@ -43,7 +43,7 @@ def admin_conn():
 @pytest.fixture(scope="session")
 def test_db_url(admin_conn):
     with admin_conn.cursor() as cur:
-        cur.execute(f"DROP DATABASE IF EXISTS {TEST_DB}")
+        cur.execute(f"DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)")
         cur.execute(f"CREATE DATABASE {TEST_DB}")
     url = make_dsn(DB_URL, dbname=TEST_DB)
     conn = psycopg2.connect(url)

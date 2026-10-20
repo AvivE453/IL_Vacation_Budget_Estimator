@@ -11,8 +11,13 @@ import { createQueryClient } from "../queryClient";
 // in memory instead of the address bar.
 export function renderApp(url: string) {
   const user = userEvent.setup();
+  const client = createQueryClient();
+  // The real retry rule without the waits between tries (1s, 2s, 4s), which
+  // would make every test of a failing API take seven seconds.
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 0 } });
   render(
-    <QueryClientProvider client={createQueryClient()}>
+    <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[url]}>
         <App />
       </MemoryRouter>
