@@ -1,5 +1,5 @@
 -- Append-only flight price observations. Rows are never upserted/overwritten:
--- retaining every snapshot is what lets estimate_all_destinations match the
+-- retaining every snapshot is what lets estimate_all_tiers match the
 -- nearest available date per search, and get_collection_volume/
 -- get_data_quality_report report real coverage over time.
 
@@ -25,6 +25,7 @@ CREATE TABLE flight_price_observations (
 );
 
 
--- Used by estimate_all_destinations's latest_flight CTE to find flights near
--- the requested dates -- the core query behind every /estimate request.
+-- Used by the flight_candidates CTE (_FRESH_FLIGHTS_CTES in app/queries.py) to
+-- find flights near the requested dates -- the core query behind every
+-- POST /api/v1/estimates request.
 CREATE INDEX idx_flight_obs_depart_date ON flight_price_observations(depart_date);

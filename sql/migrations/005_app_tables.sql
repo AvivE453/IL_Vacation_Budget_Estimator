@@ -1,11 +1,11 @@
--- Logs real app usage: every /estimate request writes one search_queries row;
+-- Logs real app usage: every POST /api/v1/estimates request writes one search_queries row;
 -- N search_results rows (one per viable destination) follow only if the
 -- entered budget currency converted to USD. This gives a natural multi-table
 -- join for the /history page without needing user accounts.
 
 CREATE TABLE search_queries (
     search_query_id            BIGSERIAL PRIMARY KEY,
-    -- Anonymous per-browser id (signed session cookie, see app/session_id.py)
+    -- Anonymous per-browser id (a random UUID in a cookie, see api/deps.py)
     -- so /history shows only the current browser's searches -- no login,
     -- no users table. NULL rows predate this column and match no session.
     session_id                  TEXT,
@@ -20,7 +20,7 @@ CREATE TABLE search_queries (
     -- actually searched rather than assuming everything used one default.
     hotel_tier                 TEXT NOT NULL DEFAULT 'average'
         CHECK (hotel_tier IN ('budget', 'average', 'luxury')),
-    -- Whether estimate_all_destinations found an exact depart/return date
+    -- Whether estimate_all_tiers found an exact depart/return date
     -- match for this search (vs falling back to nearest-available dates for
     -- everyone) -- so /history/<id> can disclose the same precision caveat
     -- shown at search time, not just the saved prices with no context.
