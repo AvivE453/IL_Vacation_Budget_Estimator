@@ -43,8 +43,8 @@ returns rows, which is also how the tests call it.
   (`{"detail": "..."}`) so they're in the schema too. 422s keep FastAPI's shape.
 - **Concurrency.** Routes are plain `def`, so FastAPI runs each request in a worker thread;
   psycopg2 blocks while it waits for the database, which `async def` would turn into blocking
-  the whole server. The pool ([app/db.py](../app/db.py)) has 10 connections; a request waits up
-  to 5 seconds for a free one, then gets the 503.
+  the whole server. The pool ([app/db.py](../app/db.py)) keeps one connection open and opens more
+  under load, up to 10; a request waits up to 5 seconds for a free one, then gets the 503.
 
 ## Input validation
 

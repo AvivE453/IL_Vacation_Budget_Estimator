@@ -6,6 +6,7 @@ from fastapi import Depends, Request, Response
 from psycopg2.extras import RealDictCursor
 
 from app.db import get_cursor
+from etl.common.config import SECURE_COOKIES
 
 
 # One cursor (and one transaction) per request. Tests swap this function out
@@ -30,7 +31,12 @@ SESSION_MAX_AGE = datetime.timedelta(days=30)
 def session_id(request: Request, response: Response) -> str:
     value = request.cookies.get(SESSION_COOKIE) or str(uuid.uuid4())
     response.set_cookie(
-        SESSION_COOKIE, value, max_age=int(SESSION_MAX_AGE.total_seconds()), httponly=True, samesite="lax"
+        SESSION_COOKIE,
+        value,
+        max_age=int(SESSION_MAX_AGE.total_seconds()),
+        httponly=True,
+        samesite="lax",
+        secure=SECURE_COOKIES,
     )
     return value
 

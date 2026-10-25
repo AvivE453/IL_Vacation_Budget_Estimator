@@ -10,6 +10,7 @@ import datetime
 import pytest
 from fastapi.testclient import TestClient
 
+from api import deps as deps_module
 from api.deps import db_cursor
 from api.main import app
 from app import live_flights as live_flights_module
@@ -371,6 +372,19 @@ def test_new_browser_has_no_searches_and_gets_a_session(client):
 
     assert response.json() == []
     assert response.cookies["session_id"]
+
+
+# Secure only behind HTTPS (SECURE_COOKIES=on): over local http a browser
+# would drop a Secure cookie, and every request would start a new session.
+@pytest.mark.parametrize("secure", [False, True])
+def test_session_cookie_is_secure_only_when_configured(client, monkeypatch, secure):
+    monkeypatch.setattr(deps_module, "SECURE_COOKIES", secure)
+
+    response = client.get("/api/v1/searches")
+
+    attributes = [part.strip().lower() for part in response.headers["set-cookie"].split(";")]
+    assert ("secure" in attributes) is secure
+    assert "httponly" in attributes
 
 
 def test_saved_search_is_shown_in_its_budget_currency(client, cur):
