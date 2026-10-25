@@ -11,6 +11,9 @@ identify places differently. Flights use airport codes (`BCN`), hotels use city 
 (`"Barcelona"`). A hand-curated `destinations` table maps both to one internal id, and every
 query joins through it. Missing data is shown to the user, never silently treated as zero.
 
+**Live:** https://d2r41mkrvtiz2x.cloudfront.net (Hebrew interface; AWS Lambda + CloudFront, the
+database on Neon).
+
 ## How it works
 
 | Layer | What it does |

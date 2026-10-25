@@ -198,8 +198,6 @@ machine. How both kinds are set up: [testing.md](testing.md).
 ## Known limitations
 
 - **No error boundary**: an error thrown while rendering blanks the whole page.
-- **No production server yet.** Deployed, it would need to serve `index.html` for every app path
-  (refreshing `/history/5` asks the server for that path) and send `/api` to the API.
 - **History numbers shift**: the list is numbered within the latest 20, so after more searches a
   search's number changes (its link, by id, doesn't).
 - **A saved search with no ranking can't say why**: over budget and missing data both save an

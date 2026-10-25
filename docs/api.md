@@ -39,12 +39,20 @@ returns rows, which is also how the tests call it.
   - `SessionId`: the anonymous browser id. A random UUID in an `httponly`, `samesite=lax`
     cookie, re-sent on every response so its 30 days count from the last visit. Not signed:
     there's nothing in it to tamper with, and another browser's id can't be guessed.
+    `SECURE_COOKIES=on` also marks it `Secure` (HTTPS only), as on AWS; it stays off locally,
+    where a browser would drop a `Secure` cookie sent over plain `http`.
 - **[api/errors.py](../api/errors.py)** describes the API's own 404 and 503 bodies
   (`{"detail": "..."}`) so they're in the schema too. 422s keep FastAPI's shape.
 - **Concurrency.** Routes are plain `def`, so FastAPI runs each request in a worker thread;
   psycopg2 blocks while it waits for the database, which `async def` would turn into blocking
   the whole server. The pool ([app/db.py](../app/db.py)) keeps one connection open and opens more
-  under load, up to 10; a request waits up to 5 seconds for a free one, then gets the 503.
+  under load, up to 10; a request waits up to 5 seconds for a free one, then gets the 503. A
+  connection that sat in the pool for more than a minute is checked with `SELECT 1` before a
+  request gets it, and replaced if the server has closed it: Neon closes its connections when it
+  suspends, and on AWS a warm Lambda would otherwise hand the dead one to the next request (a
+  500 after every quiet spell, before the check).
+- **On AWS** the same app runs on Lambda: [api/lambda_handler.py](../api/lambda_handler.py) wraps it
+  in Mangum, which turns an API Gateway event into a request and the response back.
 
 ## Input validation
 
@@ -208,7 +216,8 @@ always looked cheapest, having the fewest hotel nights.
 ## Known limitations
 
 - **The destination view holds a database connection while it waits for Travelpayouts**, up to
-  5 seconds: ten views at once against a slow API would use the whole pool. It doesn't show with
-  one user.
+  5 seconds: under uvicorn, ten views at once against a slow API would use the whole pool. It
+  doesn't show with one user, nor on Lambda, where each execution environment serves one request
+  at a time with its own connection.
 - **Prices come from a cache of other people's searches.** Flights are the nearest dates someone
   searched, hotels a recent rate for one fixed week; see [etl.md](etl.md).

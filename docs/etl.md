@@ -8,7 +8,7 @@ command line, each as a module (`uv run python -m etl.<folder>.<script>`).
 
 | Folder | What's in it | How often it runs |
 |---|---|---|
-| [common/](../etl/common/) | `config.py` (reads `.env`), `db.py` (one connection per run) | Imported, never run |
+| [common/](../etl/common/) | `config.py` (reads `.env`, or SSM on Lambda), `db.py` (one connection per run) | Imported, never run |
 | [loaders/](../etl/loaders/) | Migrations, reference data, cleanup scripts | Once, or when their input changes. Safe to rerun |
 | [collectors/](../etl/collectors/) | Flight prices, hotel prices | Over and over |
 | [tools/](../etl/tools/) | `discover_destinations` | By hand, when choosing new destinations |
@@ -25,7 +25,16 @@ or Ctrl+C partway through keeps what was collected. The API has its own pool
 (`config.py`, and the live flight search reuses the collector's parser).
 
 **Configuration** comes from environment variables, read from `.env` when that file exists:
-`DB_URL`, `TRAVELPAYOUTS_TOKEN` (and optional `TRAVELPAYOUTS_MARKER`), `SERPAPI_KEY`.
+`DB_URL`, `TRAVELPAYOUTS_TOKEN` (and optional `TRAVELPAYOUTS_MARKER`), `SERPAPI_KEY`. On Lambda
+there's no `.env`: with `SSM_PARAMETER_PATH` set, `config.py` first loads every SSM Parameter
+Store parameter under that path into the environment (`/vacation-budget/api/DB_URL` becomes
+`DB_URL`).
+
+**On Lambda** a scheduled job runs through one entry point, [lambda_jobs.py](../etl/lambda_jobs.py):
+the event names the job (`{"job": "flights", "shard": 0}`) and it calls that job's `main()`, the
+same one the command line runs. A full flights run takes about 10 minutes, close to Lambda's
+15-minute limit, so the schedule runs it as two shards of its months (`FLIGHT_SHARDS`: 0–3 and
+4–6); from the command line `main()` still collects all seven.
 
 ## Setting up a database
 

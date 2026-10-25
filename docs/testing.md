@@ -73,7 +73,10 @@ don't care about (`TLV`, USD, collected now, seen the day it was collected). Tri
 | `test_queries.py` | The other read queries, against exact values; every seeded city and country has a Hebrew name |
 | `test_api.py` | The routes through `TestClient`: the full JSON of each response, 422s naming the field, 404 and 503, session scoping, the live call and its fallback |
 | `test_openapi.py` | `api/openapi.json` matches the code; the operationIds; the documented errors |
-| `test_db.py` | The API's connection pool: reuse, rollback on error, a dropped connection replaced, waiting for a free one |
+| `test_db.py` | The API's connection pool: reuse, rollback on error, a dropped connection replaced, an idle one the server closed replaced before use (a healthy one kept), waiting for a free one |
+| `test_lambda_handler.py` | The API as Lambda runs it: an API Gateway event through `api/lambda_handler.py`, and the session cookie there and back |
+| `test_lambda_jobs.py` | `etl/lambda_jobs.py`: the flight shards add up to a full run, each job gets its arguments, an unknown job or a collector's `SystemExit` fails with its message |
+| `test_config.py` | On Lambda the settings come from SSM Parameter Store (a fake client), before the constants read them |
 | `test_live_flights.py` | The live call's parsing; every failure comes back as `None` |
 | `test_flights_collector.py` | Retries (429 waits `X-Rate-Limit-Reset`, 5xx retried, 401 not), parsing, duplicates, the run's counters, a commit per destination |
 | `test_hotels_collector.py` | The SerpApi quota: never more searches than the account or the run allows; which cities go first; a commit per city |
@@ -169,19 +172,21 @@ the migrations, the loaders); the TypeScript ones live in `frontend/` with their
 
 ## CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml))
 
-GitHub Actions, on every push to any branch and by hand. Three jobs run in parallel:
+GitHub Actions, on every push to any branch and by hand. Four jobs run in parallel:
 
 | Job | Steps |
 |---|---|
 | `test` | `uv sync --locked`, `ruff`, the migration and seed commands on a fresh `postgres:16` service, `pytest -v` |
 | `frontend` | `npm ci` with Node from `.nvmrc`, regenerate `schema.d.ts` and fail on a diff, `npm test`, `npm run build` |
 | `e2e` | Both stacks, Postgres, Google Chrome, `npx playwright test`; on failure, the traces as an artifact |
+| `terraform` | `terraform fmt -check`, then `init -backend=false` and `validate` on `infra/`: no AWS access, nothing is created |
 
 - Postgres starts as a service with a `pg_isready` health check, so the steps wait for it. It's on
   port 5432 there (`DB_URL` in the workflow); locally it's 5433.
 - `--locked` and `npm ci` fail when a lock file doesn't match its manifest.
 - **Pinned**: the runner (`ubuntu-24.04`, not `ubuntu-latest`), `astral-sh/setup-uv` (an exact
-  version: it publishes no major tag), Node (`.nvmrc`) and Postgres (16). GitHub's own actions
+  version: it publishes no major tag), `hashicorp/setup-terraform` and Terraform (exact versions,
+  the same Terraform as locally), Node (`.nvmrc`) and Postgres (16). GitHub's own actions
   are on their major tag (`@v7`). An upgrade gets its own commit.
 - Each job has a `timeout-minutes`, so a hung server stops the run in minutes, not hours.
 - CI holds no secrets: nothing in it calls Travelpayouts or SerpApi.
