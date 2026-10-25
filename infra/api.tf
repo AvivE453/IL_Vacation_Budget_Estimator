@@ -133,3 +133,7 @@ resource "aws_lambda_permission" "api_gateway" {
 output "api_url" {
   value = aws_apigatewayv2_stage.api.invoke_url
 }
+
+output "api_function_name" {
+  value = aws_lambda_function.api.function_name
+}
