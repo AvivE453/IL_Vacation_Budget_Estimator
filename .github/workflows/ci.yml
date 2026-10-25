@@ -86,6 +86,34 @@ jobs:
       - name: Type check and build
         run: npm run build
 
+  terraform:
+    # Checks infra/ without touching AWS: no credentials here, and
+    # init -backend=false never reads the state bucket. apply stays manual.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      # The same Terraform as locally.
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.16.7
+
+      - name: Formatting
+        run: terraform fmt -check
+
+      # The provider versions come from the committed .terraform.lock.hcl.
+      - name: Validate
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
   e2e:
     # The whole app in a real browser: Vite + FastAPI + Postgres, with the
     # fixed data from tests/e2e_data.py and live flight search off.

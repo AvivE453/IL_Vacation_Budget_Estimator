@@ -16,3 +16,12 @@ ROADMAP.md
 HISTORY.md
 QUESTIONS.md
 build/
+# Terraform: downloaded providers, any local state, variable files (may hold
+# values). The state itself lives in S3; .terraform.lock.hcl IS committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+# The state bucket's name, which holds the AWS account id.
+infra/backend.hcl

@@ -5,6 +5,7 @@
 
 import threading
 import time
+from contextlib import closing
 
 import psycopg2
 import pytest
@@ -16,6 +17,7 @@ from app import db as app_db
 def pool_on_test_db(test_db_url, monkeypatch):
     monkeypatch.setattr(app_db, "DB_URL", test_db_url)
     monkeypatch.setattr(app_db, "_pool", None)
+    monkeypatch.setattr(app_db, "_returned_at", {})
     yield
     if app_db._pool is not None:
         app_db._pool.closeall()
@@ -55,6 +57,36 @@ def test_dropped_connection_is_replaced(pool_on_test_db):
 
     with app_db.get_cursor() as cur:
         assert cur.connection is not dropped
+        cur.execute("SELECT 1 AS one")
+        assert cur.fetchone()["one"] == 1
+
+
+# Neon closes its connections when it suspends, and a warm Lambda keeps the
+# dead one in its pool: the next request got a 500 (ROADMAP 4.3). A connection
+# that sat idle is checked before a request gets it.
+def test_idle_connection_closed_by_the_server_is_replaced(pool_on_test_db, monkeypatch):
+    with app_db.get_cursor() as cur:
+        cur.execute("SELECT pg_backend_pid() AS pid")
+        idle, pid = cur.connection, cur.fetchone()["pid"]
+    with closing(psycopg2.connect(app_db.DB_URL)) as other, other.cursor() as cur:
+        cur.execute("SELECT pg_terminate_backend(%s)", (pid,))
+    monkeypatch.setattr(app_db, "CHECK_AFTER_IDLE_SECONDS", 0)
+
+    with app_db.get_cursor() as cur:
+        assert cur.connection is not idle
+        cur.execute("SELECT 1 AS one")
+        assert cur.fetchone()["one"] == 1
+
+
+# A check that wrongly failed would open a new connection (a TLS handshake to
+# Neon) for every request after a pause, and no other test would notice.
+def test_healthy_idle_connection_passes_the_check_and_is_reused(pool_on_test_db, monkeypatch):
+    with app_db.get_cursor() as cur:
+        idle = cur.connection
+    monkeypatch.setattr(app_db, "CHECK_AFTER_IDLE_SECONDS", 0)
+
+    with app_db.get_cursor() as cur:
+        assert cur.connection is idle
         cur.execute("SELECT 1 AS one")
         assert cur.fetchone()["one"] == 1
 
