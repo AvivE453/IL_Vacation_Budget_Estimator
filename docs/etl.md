@@ -1,16 +1,17 @@
 # ETL
 
 The scripts that fill the database: reference data, flight prices, hotel prices, and the cleanup
-of rows that are no longer useful. They live in [etl/](../etl/) and are run by hand from the
-command line, each as a module (`uv run python -m etl.<folder>.<script>`).
+of rows that are no longer useful. They live in [etl/](../etl/). The collectors and the cleanups run
+on a schedule on AWS (below); every script also runs from the command line, as a module
+(`uv run python -m etl.<folder>.<script>`).
 
 ## The folders
 
 | Folder | What's in it | How often it runs |
 |---|---|---|
 | [common/](../etl/common/) | `config.py` (reads `.env`, or SSM on Lambda), `db.py` (one connection per run) | Imported, never run |
-| [loaders/](../etl/loaders/) | Migrations, reference data, cleanup scripts | Once, or when their input changes. Safe to rerun |
-| [collectors/](../etl/collectors/) | Flight prices, hotel prices | Over and over |
+| [loaders/](../etl/loaders/) | Migrations, reference data, cleanup scripts | Once, or when their input changes (the cleanups and exchange rates: every Sunday). Safe to rerun |
+| [collectors/](../etl/collectors/) | Flight prices, hotel prices | On a schedule: flights daily, hotels twice a month |
 | [tools/](../etl/tools/) | `discover_destinations` | By hand, when choosing new destinations |
 
 The loaders and the flights collector write differently on purpose. A loader upserts
@@ -35,6 +36,20 @@ the event names the job (`{"job": "flights", "shard": 0}`) and it calls that job
 same one the command line runs. A full flights run takes about 10 minutes, close to Lambda's
 15-minute limit, so the schedule runs it as two shards of its months (`FLIGHT_SHARDS`: 0–3 and
 4–6); from the command line `main()` still collects all seven.
+
+**The schedule** (`job_schedules` in [infra/jobs.tf](../infra/jobs.tf), Israel time), run by
+EventBridge Scheduler:
+
+| Job | When |
+|---|---|
+| Flights, months 0–3, then 4–6 | Daily, 04:00 and 04:20 (about 6 and 3 minutes) |
+| Hotels | The 2nd and the 16th, 05:00, at most 103 searches each (206 of the 250 a month) |
+| Exchange rates | Sundays, 05:00 |
+| The three cleanups | Sundays, 05:10–05:20 |
+
+Nothing is retried, neither by the schedule nor by Lambda (which by default retries an
+asynchronous run twice): a second hotels run would spend the SerpApi quota again. For now a failed
+run shows only in the function's CloudWatch logs (kept 14 days); email alerts are ROADMAP 4.7.
 
 ## Setting up a database
 
@@ -168,11 +183,12 @@ SerpApi's default occupancy of two adults per room. So a hotel price is a recent
 not a price for the user's dates; the app multiplies it by the nights and rooms of the trip, and
 shows how old it is.
 
-Run it by hand, not on a schedule, and keep an eye on the monthly count.
+It runs on the 2nd and the 16th of each month: 206 searches, and any month-long quota period holds
+exactly two runs. A manual run on top of that spends the same quota.
 
 ## The cleanup scripts
 
-Each is one `DELETE`, run by hand:
+Each is one `DELETE`, run every Sunday by the schedule, or by hand:
 
 ```bash
 uv run python -m etl.loaders.cleanup_old_flights
@@ -213,4 +229,5 @@ judged by hand as an Israeli vacation destination before it's added to the seed 
   Tokyo and Milan are affected the same way.
 - **Hotel prices aren't seasonal.** Every city is quoted for the same week, so a summer trip is
   priced with the hotel rates of whenever the collector last ran.
-- **Collection is manual.** Nothing runs on a schedule; prices are as fresh as the last run.
+- **A missed run isn't retried.** If a scheduled job fails, that day's prices are missing until
+  the next run.

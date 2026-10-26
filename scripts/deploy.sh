@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ships the code to the AWS resources Terraform created (ROADMAP 4.4):
-# the React build to the site bucket, and the zip to the API function.
+# the React build to the site bucket, and the zip to both Lambda functions.
 # Terraform owns the resources and their settings; this script only ships code.
 # Needs an AWS session (aws login) and an initialized infra/.
 #
@@ -18,8 +18,16 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 tf_output() { terraform -chdir=infra output -raw "$1"; }
+# One assignment each: set -e stops on a failed $(...) only when it's the whole assignment.
 bucket=$(tf_output site_bucket)
-function=$(tf_output api_function_name)
+api_function=$(tf_output api_function_name)
+jobs_function=$(tf_output jobs_function_name)
+
+update_lambda() {
+  echo "== Lambda: update $1"
+  aws lambda update-function-code --function-name "$1" --zip-file fileb://build/lambda.zip --output text --query CodeSize >/dev/null
+  aws lambda wait function-updated-v2 --function-name "$1"
+}
 
 # Both builds before anything ships: a failing one (a type error, say) must
 # not leave a new API live behind the old site.
@@ -27,9 +35,7 @@ echo "== Build the API zip and the React app ($(git rev-parse --short HEAD))"
 scripts/build_lambda.sh
 (cd frontend && npm run build)
 
-echo "== API: update $function"
-aws lambda update-function-code --function-name "$function" --zip-file fileb://build/lambda.zip --output text --query CodeSize >/dev/null
-aws lambda wait function-updated-v2 --function-name "$function"
+update_lambda "$api_function"
 
 # Order matters: the new assets go up before the index.html that points at
 # them, so no visitor ever gets a page whose files aren't there yet. Old
@@ -43,5 +49,8 @@ aws s3 sync frontend/dist "s3://$bucket" --exclude "assets/*" --exclude "index.h
 # (CloudFront answers RefreshHit after its 1-second minimum), so a deploy
 # shows up at once - no CloudFront invalidation needed.
 aws s3 cp frontend/dist/index.html "s3://$bucket/index.html" --cache-control "no-cache" --only-show-errors
+
+# Last: no visitor sees it, so a failure here leaves the API and the site matched.
+update_lambda "$jobs_function"
 
 echo "Deployed $(git rev-parse --short HEAD): $(tf_output site_url)"

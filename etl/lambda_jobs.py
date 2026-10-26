@@ -6,8 +6,9 @@
 from etl.collectors import flights_collector, hotels_collector
 from etl.loaders import cleanup_old_flights, cleanup_old_hotels, cleanup_old_searches, refresh_exchange_rates
 
-# A full flights run takes ~10 minutes, close to Lambda's 15-minute limit, so
-# it runs as two shards of the collector's months, ~5 minutes each.
+# A full flights run takes ~9 minutes, close to Lambda's 15-minute limit, so it
+# runs as two shards of the collector's months (measured: ~6.5 and ~2.5 minutes;
+# the nearer months have far more prices).
 FLIGHT_SHARDS = ([0, 1, 2, 3], [4, 5, 6])
 
 JOBS = {

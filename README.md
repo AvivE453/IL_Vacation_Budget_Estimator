@@ -18,7 +18,7 @@ database on Neon).
 
 | Layer | What it does |
 |---|---|
-| **ETL** (`etl/`) | Collects flight prices from the [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/), hotel prices from [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api), and exchange rates from [Frankfurter](https://www.frankfurter.dev). Run by hand. |
+| **ETL** (`etl/`) | Collects flight prices from the [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/), hotel prices from [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api), and exchange rates from [Frankfurter](https://www.frankfurter.dev). Runs on a schedule on AWS (flights daily). |
 | **Database** (`sql/`) | PostgreSQL 16, raw SQL with no ORM. Flight prices are append-only, so the price history is kept. |
 | **API** (`api/`, `app/`) | FastAPI, returns JSON. Interactive docs at `/docs` while it runs. |
 | **Frontend** (`frontend/`) | React 19 + TypeScript (Vite), a Hebrew right-to-left interface. Its API types are generated from the API's OpenAPI schema. |

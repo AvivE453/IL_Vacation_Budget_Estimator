@@ -137,7 +137,7 @@ the ranking, the destination view's fallback and the date grid all use it, so th
 3. **Only what was seen on the trip's newest day** (`price_seen_on`), even when pricier. The
    collector gets only the cheapest flight per date pair, so a newer, pricier one most likely
    means the cheaper one is gone. Measured from that trip's newest price, not from today:
-   collection is manual, and a quiet fortnight mustn't empty every result.
+   a failed collection run isn't retried, and a quiet fortnight mustn't empty every result.
 4. **The nearest dates, then the cheapest**, ties broken by `observation_id` so every query
    picks the same flight.
 
