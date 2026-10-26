@@ -31,6 +31,8 @@ TRAVELPAYOUTS_MARKER = os.environ.get("TRAVELPAYOUTS_MARKER", "")
 # Travelpayouts - for the end-to-end tests (fixed answers) and offline work.
 LIVE_FLIGHT_SEARCH = os.environ.get("LIVE_FLIGHT_SEARCH", "on") != "off"
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
+# Where the nightly backup goes (etl/backup/backup.py); set on the jobs Lambda only.
+BACKUP_BUCKET = os.environ.get("BACKUP_BUCKET", "")
 # "on" marks the session cookie Secure (sent over HTTPS only) - for the site
 # behind CloudFront. Off by default: local development runs over plain http,
 # where a browser would drop a Secure cookie and every request would start a

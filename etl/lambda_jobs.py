@@ -3,6 +3,7 @@
 #   {"job": "flights", "shard": 0}
 # and it runs that job's main(), the same one the command line runs.
 
+from etl.backup import backup
 from etl.collectors import flights_collector, hotels_collector
 from etl.loaders import cleanup_old_flights, cleanup_old_hotels, cleanup_old_searches, refresh_exchange_rates
 
@@ -20,6 +21,7 @@ JOBS = {
     "cleanup_flights": lambda event: cleanup_old_flights.main(),
     "cleanup_hotels": lambda event: cleanup_old_hotels.main(),
     "cleanup_searches": lambda event: cleanup_old_searches.main(),
+    "backup": lambda event: backup.main(),
 }
 
 

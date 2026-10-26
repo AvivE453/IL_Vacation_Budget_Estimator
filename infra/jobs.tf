@@ -24,7 +24,7 @@ resource "aws_iam_role" "jobs" {
   })
 }
 
-# Its own log group and its own parameters; not the API's (4.6 adds the backups bucket).
+# Its own log group and its own parameters; not the API's (writing backups: backups.tf).
 resource "aws_iam_role_policy" "jobs" {
   name = "logs-and-own-secrets"
   role = aws_iam_role.jobs.id
@@ -60,6 +60,7 @@ resource "aws_lambda_function" "jobs" {
   environment {
     variables = {
       SSM_PARAMETER_PATH = local.jobs_ssm_path
+      BACKUP_BUCKET      = aws_s3_bucket.backups.bucket
     }
   }
 
@@ -67,7 +68,7 @@ resource "aws_lambda_function" "jobs" {
     ignore_changes = [filename]
   }
 
-  depends_on = [aws_iam_role_policy.jobs, aws_cloudwatch_log_group.jobs]
+  depends_on = [aws_iam_role_policy.jobs, aws_iam_role_policy.jobs_backups, aws_cloudwatch_log_group.jobs]
 }
 
 # The schedules invoke the function asynchronously, and by default Lambda then
@@ -99,6 +100,9 @@ locals {
     cleanup-flights  = { cron = "cron(10 5 ? * SUN *)", input = { job = "cleanup_flights" } }
     cleanup-hotels   = { cron = "cron(15 5 ? * SUN *)", input = { job = "cleanup_hotels" } }
     cleanup-searches = { cron = "cron(20 5 ? * SUN *)", input = { job = "cleanup_searches" } }
+    # Nightly, after everything above (hotels ends by 05:15, the function's
+    # timeout), so a night's new hotel prices are in that night's backup.
+    backup = { cron = "cron(30 5 * * ? *)", input = { job = "backup" } }
   }
 }
 

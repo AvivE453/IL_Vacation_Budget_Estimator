@@ -46,6 +46,7 @@ EventBridge Scheduler:
 | Hotels | The 2nd and the 16th, 05:00, at most 103 searches each (206 of the 250 a month) |
 | Exchange rates | Sundays, 05:00 |
 | The three cleanups | Sundays, 05:10–05:20 |
+| Backup | Daily, 05:30, after all of the above |
 
 Nothing is retried, neither by the schedule nor by Lambda (which by default retries an
 asynchronous run twice): a second hotels run would spend the SerpApi quota again. For now a failed
