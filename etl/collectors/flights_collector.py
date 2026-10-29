@@ -99,10 +99,11 @@ def fetch_round_trips(origin, destination, depart_month, return_month):
             "departure_at": depart_month,
             "return_at": return_month,
             "currency": "usd",
-            "token": TRAVELPAYOUTS_TOKEN,
             "marker": TRAVELPAYOUTS_MARKER,
             "limit": RESULTS_PER_CALL,
         },
+        # Not a URL parameter: a failed request's message holds the URL, and it gets logged.
+        headers={"X-Access-Token": TRAVELPAYOUTS_TOKEN},
         timeout=15,
     )
     resp.raise_for_status()
@@ -215,6 +216,7 @@ def main(month_offsets=MONTH_OFFSETS):
           f"{counters['skipped_no_search_date']} prices had no search date, "
           f"{counters['errors']} request errors, "
           f"{counters['hit_results_limit']} calls hit the {RESULTS_PER_CALL}-result limit)")
+    return counters
 
 
 if __name__ == "__main__":

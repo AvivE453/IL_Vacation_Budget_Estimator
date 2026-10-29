@@ -49,8 +49,25 @@ EventBridge Scheduler:
 | Backup | Daily, 05:30, after all of the above |
 
 Nothing is retried, neither by the schedule nor by Lambda (which by default retries an
-asynchronous run twice): a second hotels run would spend the SerpApi quota again. For now a failed
-run shows only in the function's CloudWatch logs (kept 14 days); email alerts are ROADMAP 4.7.
+asynchronous run twice): a second hotels run would spend the SerpApi quota again. A failure sends an
+email instead.
+
+**Alerts** ([infra/alarms.tf](../infra/alarms.tf)). The flights, hotels and backup jobs end with one
+log line in CloudWatch's Embedded Metric Format: JSON that CloudWatch turns into metrics
+(`FlightsInserted`, `HotelsUpdated`, `BackupsCompleted`, namespace
+`VacationBudget`, dimension `Job`), with no API call. CloudWatch alarms on them, and on Lambda's own
+`Errors`, email through SNS:
+
+- **a job failed**: it raised or timed out;
+- **a flights run inserted 0 rows**: every request failed (a revoked token), or Travelpayouts had
+  no new prices; the summary line's request errors tell which;
+- **a hotels run updated 0 destinations**: the same, for SerpApi;
+- **no flights run, or no backup, in 25 hours**: a run that never happened leaves no metric at
+  all, and these alarms count missing data as a failure (25, not 24: the night the clocks go back,
+  the runs are 25 hours apart). They email again when a run reports.
+
+A hotels run that never happened isn't caught: runs are two weeks apart, longer than an alarm can
+look back. The function's logs are kept 14 days.
 
 ## Setting up a database
 
@@ -120,7 +137,9 @@ could succeed:
 - **5xx, connection errors, timeouts (15s):** waits 1 to 10 seconds, growing each attempt.
 - **Anything else** (a 401 for a bad token, say) fails at once.
 
-A call that still fails is counted as an error, and the run moves on to the next month pair.
+A call that still fails is counted as an error, its message printed, and the run moves on to the
+next month pair. The message holds the request's URL, so the token isn't in it: it goes in the
+`X-Access-Token` header.
 
 ### What it stores
 
@@ -169,6 +188,10 @@ uv run python -m etl.collectors.hotels_collector [--max-searches N]
 2. refreshes at most `min(--max-searches, searches left)` cities (the default cap is 120);
 3. takes cities with no price first, then the oldest prices (`loaded_at`);
 4. commits after each city, because each one was a paid search.
+
+SerpApi takes its key only as a URL parameter, so both calls go through `serpapi_get`, which raises
+any request error again with the key masked: a failed call's message holds its URL, and it's
+printed or ends up in the traceback.
 
 A city that returns no priced hotels keeps its old price and is printed by name. It will be first
 in line again next run, which is what's wanted: no results means the search text is wrong (it
@@ -230,5 +253,5 @@ judged by hand as an Israeli vacation destination before it's added to the seed 
   Tokyo and Milan are affected the same way.
 - **Hotel prices aren't seasonal.** Every city is quoted for the same week, so a summer trip is
   priced with the hotel rates of whenever the collector last ran.
-- **A missed run isn't retried.** If a scheduled job fails, that day's prices are missing until
-  the next run.
+- **A missed run isn't retried.** If a scheduled job fails, it sends an email, and that day's
+  prices are missing until the next run (or a run by hand).

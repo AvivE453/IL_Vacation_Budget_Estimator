@@ -52,7 +52,9 @@ returns rows, which is also how the tests call it.
   suspends, and on AWS a warm Lambda would otherwise hand the dead one to the next request (a
   500 after every quiet spell, before the check).
 - **On AWS** the same app runs on Lambda: [api/lambda_handler.py](../api/lambda_handler.py) wraps it
-  in Mangum, which turns an API Gateway event into a request and the response back.
+  in Mangum, which turns an API Gateway event into a request and the response back. A 5xx
+  response emails an alert ([infra/alarms.tf](../infra/alarms.tf)), counted by API Gateway: an
+  exception FastAPI turns into a 500 is a successful run to Lambda, so its `Errors` stays 0.
 
 ## Input validation
 
@@ -197,7 +199,8 @@ shown in the search's currency at today's rate.
 1. **Asks Travelpayouts live** ([app/live_flights.py](../app/live_flights.py)), for the exact
    days rather than a month: a month query returns only the cheapest round trip per date pair,
    an exact one every option. 5-second timeout and no retries, since the user is waiting; any
-   failure falls back. Options for other dates are dropped.
+   failure falls back, and is logged with its message, which holds the URL: so the token goes in
+   the `X-Access-Token` header, not the URL. Options for other dates are dropped.
 2. **Reports what happened** in `live_status`: `found`, `empty` (it answered with nothing for
    these dates, the common case), `failed`, or `off` (`LIVE_FLIGHT_SEARCH=off`).
 3. **Stores the live options** (`source = 'live_search'`), so a view adds flights the collector
@@ -219,5 +222,11 @@ always looked cheapest, having the fewest hotel nights.
   5 seconds: under uvicorn, ten views at once against a slow API would use the whole pool. It
   doesn't show with one user, nor on Lambda, where each execution environment serves one request
   at a time with its own connection.
+- **The first visit after a quiet spell waits about 3 seconds** (measured 2026-10-30, through
+  CloudFront): Lambda starts a new environment (~1.8 s, imports and SSM) and Neon wakes from its
+  suspend; warm, the search page's data arrives in ~0.4 s. Caching the public GETs (`/origins`,
+  `/destinations`, `/data-quality`) in CloudFront was considered and not built: at a few visits a
+  week the cache would be empty whenever someone arrives, and the search itself, a `POST`, stays
+  uncached either way. At around 100 visits a day it would pay off.
 - **Prices come from a cache of other people's searches.** Flights are the nearest dates someone
   searched, hotels a recent rate for one fixed week; see [etl.md](etl.md).

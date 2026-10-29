@@ -4,6 +4,7 @@
 
 import psycopg2
 import pytest
+import requests
 
 from etl.collectors import hotels_collector
 
@@ -51,9 +52,21 @@ def test_never_spends_more_searches_than_the_account_has_left(searched_cities, m
 def test_stops_at_the_runs_search_budget(searched_cities, monkeypatch):
     monkeypatch.setattr(hotels_collector, "fetch_searches_left", lambda: 250)
 
-    hotels_collector.main(max_searches=2)
+    counts = hotels_collector.main(max_searches=2)
 
     assert len(searched_cities) == 2
+    assert counts == {"updated": 2, "skipped_no_results": 0, "errors": 0}
+
+
+# ROADMAP 4.7 tests the "hotels run updated 0" alarm with a real run of
+# max_searches 0: it must not spend a search.
+def test_a_run_without_a_search_budget_searches_nothing(searched_cities, monkeypatch):
+    monkeypatch.setattr(hotels_collector, "fetch_searches_left", lambda: 250)
+
+    counts = hotels_collector.main(max_searches=0)
+
+    assert searched_cities == []
+    assert counts["updated"] == 0
 
 
 def test_cities_priced_before_a_crash_are_kept(committing_db, monkeypatch):
@@ -77,3 +90,36 @@ def test_cities_priced_before_a_crash_are_kept(committing_db, monkeypatch):
         cur.execute("SELECT COUNT(*) FROM hotel_prices")
         assert cur.fetchone()[0] == 1
     conn.close()
+
+
+# SerpApi takes its key only as a URL parameter, and a failed request's message
+# holds the URL: a printed or raised error must not carry the key into the
+# Lambda log (found by ROADMAP 4.7's wrong-token check).
+def failing_get(*args, **kwargs):
+    raise requests.ConnectionError("Max retries exceeded with url: /search?engine=google_hotels&api_key=secret-key")
+
+
+def test_a_failed_search_is_printed_without_the_key(committing_db, monkeypatch, capsys):
+    monkeypatch.setattr(hotels_collector, "SERPAPI_KEY", "secret-key")
+    monkeypatch.setattr(hotels_collector, "fetch_searches_left", lambda: 250)
+    monkeypatch.setattr(hotels_collector.requests, "get", failing_get)
+    monkeypatch.setattr(hotels_collector.fetch_hotels.retry, "sleep", lambda seconds: None)
+
+    counts = hotels_collector.main(max_searches=1)
+
+    out = capsys.readouterr().out
+    assert counts["errors"] == 1
+    assert "ERROR fetching" in out
+    assert "secret-key" not in out
+
+
+# Not caught by main(): Lambda logs the traceback, the chained original error included.
+def test_a_failed_quota_check_raises_without_the_key(monkeypatch):
+    monkeypatch.setattr(hotels_collector, "SERPAPI_KEY", "secret-key")
+    monkeypatch.setattr(hotels_collector.requests, "get", failing_get)
+
+    with pytest.raises(requests.ConnectionError) as failure:
+        hotels_collector.fetch_searches_left()
+
+    assert "secret-key" not in str(failure.value)
+    assert failure.value.__cause__ is None and failure.value.__suppress_context__
