@@ -13,7 +13,7 @@ class Health(BaseModel):
 
 
 # Runs a real query, so it fails when the database is unreachable - the
-# signal a hosting health check (ROADMAP stage 4) needs.
+# signal a hosting health check needs.
 @router.get("/health")
 def health(cur: Cursor) -> Health:
     cur.execute("SELECT 1")

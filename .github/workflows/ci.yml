@@ -176,7 +176,7 @@ jobs:
           path: frontend/test-results/
 
   deploy:
-    # master only, and only once every job above has passed (ROADMAP 4.9).
+    # master only, and only once every job above has passed.
     if: github.ref == 'refs/heads/master'
     needs: [test, frontend, terraform, e2e]
     runs-on: ubuntu-24.04

@@ -1,4 +1,4 @@
-# Monitoring (ROADMAP 4.7): CloudWatch alarms on the jobs' and the API's
+# Monitoring: CloudWatch alarms on the jobs' and the API's
 # metrics, sent by email through SNS.
 
 # The repository is public, so the address isn't in it: its value is in the

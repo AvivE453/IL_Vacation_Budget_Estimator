@@ -1,4 +1,4 @@
-# AWS Lambda's entry point for the scheduled jobs (ROADMAP 4.2). Each
+# AWS Lambda's entry point for the scheduled jobs. Each
 # EventBridge schedule invokes it with an event naming one job, e.g.
 #   {"job": "flights", "shard": 0}
 # and it runs that job's main(), the same one the command line runs.
@@ -19,7 +19,7 @@ FLIGHT_SHARDS = ([0, 1, 2, 3], [4, 5, 6])
 METRICS_NAMESPACE = "VacationBudget"
 
 
-# A job returns the numbers its alarms watch (ROADMAP 4.7), or nothing.
+# A job returns the numbers its alarms (infra/alarms.tf) watch, or nothing.
 def run_flights(event):
     counts = flights_collector.main(FLIGHT_SHARDS[event["shard"]])
     return {"FlightsInserted": counts["inserted"]}

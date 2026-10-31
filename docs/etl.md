@@ -33,7 +33,7 @@ Store parameter under that path into the environment (`/vacation-budget/api/DB_U
 
 **On Lambda** a scheduled job runs through one entry point, [lambda_jobs.py](../etl/lambda_jobs.py):
 the event names the job (`{"job": "flights", "shard": 0}`) and it calls that job's `main()`, the
-same one the command line runs. A full flights run takes about 10 minutes, close to Lambda's
+same one the command line runs. A full flights run takes about 9–11 minutes, close to Lambda's
 15-minute limit, so the schedule runs it as two shards of its months (`FLIGHT_SHARDS`: 0–3 and
 4–6); from the command line `main()` still collects all seven.
 
@@ -122,7 +122,7 @@ search for given dates.
 For each destination it makes 14 calls: this month and the next six, each asked twice — returning
 the same month, and returning the month after. The second one is what collects a trip across a
 month boundary (28 Nov to 4 Dec), which a same-month query never returns. With 103 destinations a
-run is about 1,440 calls and takes about 11 minutes.
+run is about 1,440 calls and takes about 9–11 minutes.
 
 Each call asks for `currency=usd` (without it, many routes answer in roubles, which Frankfurter has
 no rate for) and `limit=1000`, the API's maximum. The busiest month seen so far returned 300

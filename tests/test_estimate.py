@@ -213,7 +213,7 @@ def test_tiers_get_their_own_budget_and_missing_data_verdicts(cur):
     assert all_tiers["luxury"] == ([], True)  # no luxury price on file
 
 
-# --- several flights for the same dates (ROADMAP 2.5.1) ----------------------
+# --- several flights for the same dates --------------------------------------
 # One trip can have many flights (the collector's cheapest per date pair over
 # time, and every option a live destination view returned): each flight counts
 # at its latest-seen price, only the flights seen on the trip's newest seen-on

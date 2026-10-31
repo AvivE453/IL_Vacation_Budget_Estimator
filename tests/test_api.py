@@ -273,7 +273,7 @@ def test_missing_field_is_422(client):
     assert response.json()["detail"][0]["loc"] == ["body", "depart_date"]
 
 
-# --- statement counts (the N+1 fixes of ROADMAP 0.6) -------------------------
+# --- statement counts (no N+1 queries) ---------------------------------------
 
 
 class CountingCursor:
@@ -672,7 +672,7 @@ def test_date_grid_without_flights_or_destination(client, cur):
     assert date_grid(client, cur, origin_iata="XYZ").status_code == 422
 
 
-# --- storing live results (ROADMAP 2.5.1) ------------------------------------
+# --- storing live results ---------------------------------------------------
 
 
 def stored_live_rows(cur):
@@ -708,7 +708,7 @@ def test_live_option_without_a_search_date_is_shown_but_not_stored(client, cur, 
 
 @pytest.mark.parametrize("second_price", [176, 231], ids=["same-price", "different-price"])
 def test_same_airline_and_stops_at_different_times_are_two_flights(client, cur, live, second_price):
-    # Before ROADMAP 2.5.1 neither duplicate check looked at flight times, so
+    # Neither duplicate check once looked at flight times, so
     # the second flight was dropped as "already stored" - at a different
     # price too, since one save shares a single observed_at.
     live["options"] = [live_option(176), live_option(second_price, depart_time=datetime.time(6, 0))]

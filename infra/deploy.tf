@@ -1,7 +1,7 @@
-# Automated deploys (ROADMAP 4.9): the identity CI's deploy job uses.
+# Automated deploys: the identity CI's deploy job uses.
 #
 # An IAM user with an access key, not OIDC: this account type's organization
-# policy (managed by AWS, ROADMAP 4.9) denies creating an OIDC provider. So the
+# policy (managed by AWS) denies creating an OIDC provider. So the
 # key is long-lived, and what limits it is elsewhere: this policy (deploying
 # only), and GitHub's "production" environment, which hands the key only to
 # runs on master. The key is created by hand and goes straight into that

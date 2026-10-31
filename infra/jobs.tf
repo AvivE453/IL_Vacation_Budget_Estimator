@@ -1,4 +1,4 @@
-# The scheduled jobs (ROADMAP 4.5): a second Lambda function from the same zip,
+# The scheduled jobs: a second Lambda function from the same zip,
 # entry point etl.lambda_jobs.handler, and the EventBridge schedules that invoke it.
 
 locals {

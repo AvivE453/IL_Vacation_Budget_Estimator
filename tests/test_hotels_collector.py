@@ -58,7 +58,7 @@ def test_stops_at_the_runs_search_budget(searched_cities, monkeypatch):
     assert counts == {"updated": 2, "skipped_no_results": 0, "errors": 0}
 
 
-# ROADMAP 4.7 tests the "hotels run updated 0" alarm with a real run of
+# The "hotels run updated 0" alarm is tested with a real run of
 # max_searches 0: it must not spend a search.
 def test_a_run_without_a_search_budget_searches_nothing(searched_cities, monkeypatch):
     monkeypatch.setattr(hotels_collector, "fetch_searches_left", lambda: 250)
@@ -94,7 +94,7 @@ def test_cities_priced_before_a_crash_are_kept(committing_db, monkeypatch):
 
 # SerpApi takes its key only as a URL parameter, and a failed request's message
 # holds the URL: a printed or raised error must not carry the key into the
-# Lambda log (found by ROADMAP 4.7's wrong-token check).
+# Lambda log (found by testing an alarm with a wrong token).
 def failing_get(*args, **kwargs):
     raise requests.ConnectionError("Max retries exceeded with url: /search?engine=google_hotels&api_key=secret-key")
 

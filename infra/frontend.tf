@@ -1,5 +1,5 @@
 # The site: the React build in a private S3 bucket, served with the API through
-# one CloudFront distribution (ROADMAP 4.4).
+# one CloudFront distribution.
 
 # Runs on every viewer request to the S3 behavior, at the edge.
 resource "aws_cloudfront_function" "spa_rewrite" {

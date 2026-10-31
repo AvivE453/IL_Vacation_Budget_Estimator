@@ -1,4 +1,4 @@
-# The nightly backups (ROADMAP 4.6): etl/backup/backup.py writes each table as
+# The nightly backups: etl/backup/backup.py writes each table as
 # backups/YYYY-MM-DD/<table>.csv.gz. The jobs function may only add files here;
 # reading them back is restore.py's job, from this machine.
 

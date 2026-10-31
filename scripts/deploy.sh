@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ships the code to the AWS resources Terraform created (ROADMAP 4.4, 4.9):
+# Ships the code to the AWS resources Terraform created (docs/cloud.md):
 # migrations and seed data to Neon, the zip to both Lambda functions, the React
 # build to the site bucket, then smoke tests against the live site.
 # Terraform owns the resources and their settings; this script only ships code.
@@ -15,7 +15,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Both builds read the files on disk, so an uncommitted change would go live
-# untested. Gitignored files (.env, ROADMAP.md...) don't count.
+# untested. Gitignored files (.env, build/...) don't count.
 if [ -n "$(git status --porcelain)" ]; then
   echo "Uncommitted changes - commit or stash them first:" >&2
   git status --short >&2

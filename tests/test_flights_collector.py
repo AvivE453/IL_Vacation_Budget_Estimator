@@ -75,7 +75,7 @@ def test_bad_token_fails_without_retrying(monkeypatch):
 
 # A failed request's message holds its whole URL, and the collector prints it
 # to the Lambda log: the token goes in a header so it's never in the URL
-# (found by ROADMAP 4.7's wrong-token check).
+# (found by testing an alarm with a wrong token).
 def test_token_is_sent_in_a_header_not_the_url(monkeypatch):
     monkeypatch.setattr(flights_collector, "TRAVELPAYOUTS_TOKEN", "secret-token")
     sent = []

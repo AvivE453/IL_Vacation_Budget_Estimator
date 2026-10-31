@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A few real requests to the live site after a deploy (ROADMAP 4.9): the API
+# A few real requests to the live site after a deploy: the API
 # reaches Neon, a search runs end to end, and an inner page loads on refresh.
 # Exits non-zero on the first failure, which turns CI's deploy job red.
 # Each run saves one search to Neon, like a visitor's would.

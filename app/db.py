@@ -23,7 +23,7 @@ _slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
 # A pooled connection idle this long is checked with SELECT 1 before a request
 # gets it, and replaced if the server has closed it. Neon closes its connections
 # when it suspends (after 5 idle minutes on the free plan), and a warm Lambda
-# would hand the dead one to the next request: a 500 (ROADMAP 4.3). One minute,
+# would hand the dead one to the next request: a 500 (seen on AWS). One minute,
 # not just under five: that setting is Neon's, and other hops on the way may
 # drop quiet connections sooner. A check costs one round trip.
 CHECK_AFTER_IDLE_SECONDS = 60

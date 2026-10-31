@@ -1,4 +1,4 @@
-# The AWS side of the site (ROADMAP stage 4). Neon is set up by hand, and the
+# The AWS side of the site (docs/cloud.md). Neon is set up by hand, and the
 # secrets go into SSM Parameter Store by hand too, never through Terraform -
 # anything Terraform creates is written, in full, into its state.
 

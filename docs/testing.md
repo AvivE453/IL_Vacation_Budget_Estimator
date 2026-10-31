@@ -33,6 +33,7 @@ migrations and seed files, never copied from the development data.
 | `vacation_budget` | Development; never touched by a test | By hand |
 | `vacation_budget_test` | pytest | At the start of every run; left in place afterwards for inspecting |
 | `vacation_budget_migrations_test` | `test_run_migrations.py` | Empty, created and dropped by each test |
+| `vacation_budget_restore_test` | `test_backup.py` | Empty, created and dropped by each restore test |
 | `vacation_budget_e2e` | Playwright | At the start of every run, with fixed data |
 
 A rebuild uses `DROP DATABASE ... WITH (FORCE)`, so a `psql` session left open on the old copy
@@ -75,13 +76,14 @@ don't care about (`TLV`, USD, collected now, seen the day it was collected). Tri
 | `test_openapi.py` | `api/openapi.json` matches the code; the operationIds; the documented errors |
 | `test_db.py` | The API's connection pool: reuse, rollback on error, a dropped connection replaced, an idle one the server closed replaced before use (a healthy one kept), waiting for a free one |
 | `test_lambda_handler.py` | The API as Lambda runs it: an API Gateway event through `api/lambda_handler.py`, and the session cookie there and back |
-| `test_lambda_jobs.py` | `etl/lambda_jobs.py`: the flight shards add up to a full run, each job gets its arguments, an unknown job or a collector's `SystemExit` fails with its message |
+| `test_lambda_jobs.py` | `etl/lambda_jobs.py`: the flight shards add up to a full run, each job gets its arguments, an unknown job or a collector's `SystemExit` fails with its message; each job's metrics line in Embedded Metric Format, none for a failed job; the alarms in `infra/alarms.tf` watch exactly the metrics the jobs print |
 | `test_config.py` | On Lambda the settings come from SSM Parameter Store (a fake client), before the constants read them |
-| `test_live_flights.py` | The live call's parsing; every failure comes back as `None` |
-| `test_flights_collector.py` | Retries (429 waits `X-Rate-Limit-Reset`, 5xx retried, 401 not), parsing, duplicates, the run's counters, a commit per destination |
-| `test_hotels_collector.py` | The SerpApi quota: never more searches than the account or the run allows; which cities go first; a commit per city |
+| `test_live_flights.py` | The live call's parsing; every failure comes back as `None`; the token goes in a header, not the URL |
+| `test_flights_collector.py` | Retries (429 waits `X-Rate-Limit-Reset`, 5xx retried, 401 not), parsing, duplicates, the run's counters, a commit per destination; the token goes in a header, not the URL |
+| `test_hotels_collector.py` | The SerpApi quota: never more searches than the account or the run allows (none for a budget of 0); which cities go first; a commit per city; a failed request's message never holds the key |
 | `test_loaders.py` | Deactivating a destination removed from the seed; the cleanup scripts |
 | `test_run_migrations.py` | The migration runner, on its own empty database and a copy of the migration files in `tmp_path` |
+| `test_backup.py` | The backup covers every table; a backup restored into an empty database round-trips every row, an insert after it gets a new id, columns are matched by name; a database with tables is refused |
 | `test_currency.py` | Currency conversion, with a fake cursor: the one file that needs no database |
 
 ### No network

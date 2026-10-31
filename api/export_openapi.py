@@ -1,5 +1,5 @@
 # Writes the API's OpenAPI schema to api/openapi.json, the file the React
-# app's TypeScript types are generated from (ROADMAP 3.1). Rerun after
+# app's TypeScript types are generated from. Rerun after
 # changing any route or Pydantic model - tests/test_openapi.py fails until
 # the file matches the code.
 #

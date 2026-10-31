@@ -62,7 +62,7 @@ def test_dropped_connection_is_replaced(pool_on_test_db):
 
 
 # Neon closes its connections when it suspends, and a warm Lambda keeps the
-# dead one in its pool: the next request got a 500 (ROADMAP 4.3). A connection
+# dead one in its pool: the next request got a 500 (seen on AWS). A connection
 # that sat idle is checked before a request gets it.
 def test_idle_connection_closed_by_the_server_is_replaced(pool_on_test_db, monkeypatch):
     with app_db.get_cursor() as cur:

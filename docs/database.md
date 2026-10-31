@@ -82,8 +82,8 @@ Two dates say when a row was seen:
 - **`observed_at`**: when our collector fetched the row. It feeds the per-day collection chart, and
   it's the record of when a collection run actually happened.
 
-**The duplicate rule** is `uq_flight_obs`: the same flight (destination, dates, airline, stops,
-times) at the same price, seen on the same day, is stored once. The insert uses
+**The duplicate rule** is `uq_flight_obs`: the same flight (destination, dates, airline, outbound
+stops, times) at the same price, seen on the same day, is stored once. The insert uses
 `ON CONFLICT DO NOTHING`, so a collector run adds only what it hasn't seen. The constraint is
 `NULLS NOT DISTINCT`: in plain SQL `NULL = NULL` isn't true, so without it two rows that both lack
 an airline would never count as duplicates.
@@ -185,11 +185,15 @@ in `schema_migrations`, and runs only the files not recorded there, each in its 
   the file name is tracked, so the edit would never reach a database that already applied it.
 - The tests build a fresh database from the migrations and seed files on every run, and so does
   CI, so a broken migration fails there before it reaches anyone else's database.
+- Every deploy runs the migrations on the production database before it ships the new code
+  ([cloud.md](cloud.md#deploying)), so for a moment the old code runs against the new schema. A
+  migration therefore only adds: dropping or renaming a column the running code reads takes two
+  deploys, one that stops reading it and one that drops it.
 
 ## Cleanup
 
-Three scripts in [etl/loaders/](../etl/loaders/) keep the tables bounded. For now they are run by
-hand:
+Three scripts in [etl/loaders/](../etl/loaders/) keep the tables bounded. They run every Sunday on
+AWS, after that morning's collection ([etl.md](etl.md)):
 
 | Script | Deletes |
 |---|---|

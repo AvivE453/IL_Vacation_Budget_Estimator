@@ -7,7 +7,7 @@ data "aws_region" "current" {}
 
 locals {
   api_function_name = "vacation-budget-api"
-  # Where the API's secrets live in SSM, put there by hand (ROADMAP 4.3).
+  # Where the API's secrets live in SSM, put there by hand.
   api_ssm_path = "/vacation-budget/api/"
   ssm_arn      = "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter"
 }
@@ -109,7 +109,7 @@ resource "aws_apigatewayv2_route" "api" {
 
 # Throttling: past ~10 requests a second (bursts of 20) API Gateway answers
 # 429 itself, before the function runs. Approximate, not a hard cap: in a
-# 1-second burst of 200 requests, 173 got through (ROADMAP 4.3).
+# 1-second burst of 200 requests, 173 got through (measured 2026-10-25).
 resource "aws_apigatewayv2_stage" "api" {
   api_id      = aws_apigatewayv2_api.api.id
   name        = "$default"
