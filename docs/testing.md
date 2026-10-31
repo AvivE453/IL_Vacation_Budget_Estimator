@@ -172,7 +172,7 @@ the migrations, the loaders); the TypeScript ones live in `frontend/` with their
 
 ## CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml))
 
-GitHub Actions, on every push to any branch and by hand. Four jobs run in parallel:
+GitHub Actions, on every push to any branch and by hand. Four test jobs run in parallel:
 
 | Job | Steps |
 |---|---|
@@ -189,7 +189,23 @@ GitHub Actions, on every push to any branch and by hand. Four jobs run in parall
   the same Terraform as locally), Node (`.nvmrc`) and Postgres (16). GitHub's own actions
   are on their major tag (`@v7`). An upgrade gets its own commit.
 - Each job has a `timeout-minutes`, so a hung server stops the run in minutes, not hours.
-- CI holds no secrets: nothing in it calls Travelpayouts or SerpApi.
+- The test jobs hold no secrets: nothing in them calls Travelpayouts or SerpApi.
+
+**Deploy.** A fifth job, `deploy`, runs on `master` only, after the four above pass, and never two
+at once (a `concurrency` group). It builds the zip and the React app, then runs
+[scripts/deploy.sh](../scripts/deploy.sh): migrations and seed data on Neon, both Lambda functions
+(each checked to run the zip just built), the site, and
+[scripts/smoke_test.sh](../scripts/smoke_test.sh) against the live site (health, a search, an
+inner page on refresh), which turns the run red on a failure.
+
+- **AWS access**: an access key of the IAM user `vacation-budget-deploy` (`infra/deploy.tf`), whose
+  policy only ships code: update both functions' code, write to the site bucket, read Neon's
+  `DB_URL` from SSM. Not OIDC, which this AWS account type's organization policy forbids.
+- **The key is a secret of the GitHub environment `production`**, whose deployment branch rule
+  hands it only to runs on `master`, and only the deploy step has it in its environment: installing
+  and building, which run third-party code, happen in the step before. That job's actions are
+  pinned to a commit, not a tag.
+- **Neon's `DB_URL`** is masked in the log (`::add-mask::`), the password on its own too.
 
 ## Not covered
 

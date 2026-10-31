@@ -174,3 +174,57 @@ jobs:
         with:
           name: playwright-traces
           path: frontend/test-results/
+
+  deploy:
+    # master only, and only once every job above has passed (ROADMAP 4.9).
+    if: github.ref == 'refs/heads/master'
+    needs: [test, frontend, terraform, e2e]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The AWS key is a secret of this environment, whose deployment branch
+    # rule hands it only to runs on master: no other branch's workflow can read it.
+    environment: production
+    # A second deploy waits for the one running instead of overlapping it.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+
+    # The only job holding a secret, so its actions are pinned to the commit
+    # of their release: a moved tag can't run new code next to the AWS key.
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Installing and building run third-party code (package install scripts,
+      # Vite's plugins), so they run here, before the key is in any step's
+      # environment.
+      - name: Build the API zip and the React app
+        run: |
+          uv sync --locked
+          (cd frontend && npm ci)
+          scripts/build_lambda.sh
+          (cd frontend && npm run build)
+
+      - name: Deploy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: eu-north-1
+          # A secret too: the bucket's name holds the account id, and GitHub
+          # masks a secret's value in the log.
+          SITE_BUCKET: ${{ secrets.SITE_BUCKET }}
+          SITE_URL: https://d2r41mkrvtiz2x.cloudfront.net/
+          API_FUNCTION: vacation-budget-api
+          JOBS_FUNCTION: vacation-budget-jobs
+          SKIP_BUILD: "1"
+        run: scripts/deploy.sh
