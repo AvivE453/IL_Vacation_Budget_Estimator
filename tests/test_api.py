@@ -10,6 +10,7 @@ import datetime
 import pytest
 from fastapi.testclient import TestClient
 
+from api import deps as deps_module
 from api.deps import db_cursor
 from api.main import app
 from app import live_flights as live_flights_module
@@ -272,7 +273,7 @@ def test_missing_field_is_422(client):
     assert response.json()["detail"][0]["loc"] == ["body", "depart_date"]
 
 
-# --- statement counts (the N+1 fixes of ROADMAP 0.6) -------------------------
+# --- statement counts (no N+1 queries) ---------------------------------------
 
 
 class CountingCursor:
@@ -371,6 +372,19 @@ def test_new_browser_has_no_searches_and_gets_a_session(client):
 
     assert response.json() == []
     assert response.cookies["session_id"]
+
+
+# Secure only behind HTTPS (SECURE_COOKIES=on): over local http a browser
+# would drop a Secure cookie, and every request would start a new session.
+@pytest.mark.parametrize("secure", [False, True])
+def test_session_cookie_is_secure_only_when_configured(client, monkeypatch, secure):
+    monkeypatch.setattr(deps_module, "SECURE_COOKIES", secure)
+
+    response = client.get("/api/v1/searches")
+
+    attributes = [part.strip().lower() for part in response.headers["set-cookie"].split(";")]
+    assert ("secure" in attributes) is secure
+    assert "httponly" in attributes
 
 
 def test_saved_search_is_shown_in_its_budget_currency(client, cur):
@@ -658,7 +672,7 @@ def test_date_grid_without_flights_or_destination(client, cur):
     assert date_grid(client, cur, origin_iata="XYZ").status_code == 422
 
 
-# --- storing live results (ROADMAP 2.5.1) ------------------------------------
+# --- storing live results ---------------------------------------------------
 
 
 def stored_live_rows(cur):
@@ -694,7 +708,7 @@ def test_live_option_without_a_search_date_is_shown_but_not_stored(client, cur, 
 
 @pytest.mark.parametrize("second_price", [176, 231], ids=["same-price", "different-price"])
 def test_same_airline_and_stops_at_different_times_are_two_flights(client, cur, live, second_price):
-    # Before ROADMAP 2.5.1 neither duplicate check looked at flight times, so
+    # Neither duplicate check once looked at flight times, so
     # the second flight was dropped as "already stored" - at a different
     # price too, since one save shares a single observed_at.
     live["options"] = [live_option(176), live_option(second_price, depart_time=datetime.time(6, 0))]

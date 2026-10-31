@@ -39,12 +39,22 @@ returns rows, which is also how the tests call it.
   - `SessionId`: the anonymous browser id. A random UUID in an `httponly`, `samesite=lax`
     cookie, re-sent on every response so its 30 days count from the last visit. Not signed:
     there's nothing in it to tamper with, and another browser's id can't be guessed.
+    `SECURE_COOKIES=on` also marks it `Secure` (HTTPS only), as on AWS; it stays off locally,
+    where a browser would drop a `Secure` cookie sent over plain `http`.
 - **[api/errors.py](../api/errors.py)** describes the API's own 404 and 503 bodies
   (`{"detail": "..."}`) so they're in the schema too. 422s keep FastAPI's shape.
 - **Concurrency.** Routes are plain `def`, so FastAPI runs each request in a worker thread;
   psycopg2 blocks while it waits for the database, which `async def` would turn into blocking
-  the whole server. The pool ([app/db.py](../app/db.py)) has 10 connections; a request waits up
-  to 5 seconds for a free one, then gets the 503.
+  the whole server. The pool ([app/db.py](../app/db.py)) keeps one connection open and opens more
+  under load, up to 10; a request waits up to 5 seconds for a free one, then gets the 503. A
+  connection that sat in the pool for more than a minute is checked with `SELECT 1` before a
+  request gets it, and replaced if the server has closed it: Neon closes its connections when it
+  suspends, and on AWS a warm Lambda would otherwise hand the dead one to the next request (a
+  500 after every quiet spell, before the check).
+- **On AWS** the same app runs on Lambda: [api/lambda_handler.py](../api/lambda_handler.py) wraps it
+  in Mangum, which turns an API Gateway event into a request and the response back. A 5xx
+  response emails an alert ([infra/alarms.tf](../infra/alarms.tf)), counted by API Gateway: an
+  exception FastAPI turns into a 500 is a successful run to Lambda, so its `Errors` stays 0.
 
 ## Input validation
 
@@ -129,7 +139,7 @@ the ranking, the destination view's fallback and the date grid all use it, so th
 3. **Only what was seen on the trip's newest day** (`price_seen_on`), even when pricier. The
    collector gets only the cheapest flight per date pair, so a newer, pricier one most likely
    means the cheaper one is gone. Measured from that trip's newest price, not from today:
-   collection is manual, and a quiet fortnight mustn't empty every result.
+   a failed collection run isn't retried, and a quiet fortnight mustn't empty every result.
 4. **The nearest dates, then the cheapest**, ties broken by `observation_id` so every query
    picks the same flight.
 
@@ -189,7 +199,8 @@ shown in the search's currency at today's rate.
 1. **Asks Travelpayouts live** ([app/live_flights.py](../app/live_flights.py)), for the exact
    days rather than a month: a month query returns only the cheapest round trip per date pair,
    an exact one every option. 5-second timeout and no retries, since the user is waiting; any
-   failure falls back. Options for other dates are dropped.
+   failure falls back, and is logged with its message, which holds the URL: so the token goes in
+   the `X-Access-Token` header, not the URL. Options for other dates are dropped.
 2. **Reports what happened** in `live_status`: `found`, `empty` (it answered with nothing for
    these dates, the common case), `failed`, or `off` (`LIVE_FLIGHT_SEARCH=off`).
 3. **Stores the live options** (`source = 'live_search'`), so a view adds flights the collector
@@ -208,7 +219,14 @@ always looked cheapest, having the fewest hotel nights.
 ## Known limitations
 
 - **The destination view holds a database connection while it waits for Travelpayouts**, up to
-  5 seconds: ten views at once against a slow API would use the whole pool. It doesn't show with
-  one user.
+  5 seconds: under uvicorn, ten views at once against a slow API would use the whole pool. It
+  doesn't show with one user, nor on Lambda, where each execution environment serves one request
+  at a time with its own connection.
+- **The first visit after a quiet spell waits about 3 seconds** (measured 2026-10-30, through
+  CloudFront): Lambda starts a new environment (~1.8 s, imports and SSM) and Neon wakes from its
+  suspend; warm, the search page's data arrives in ~0.4 s. Caching the public GETs (`/origins`,
+  `/destinations`, `/data-quality`) in CloudFront was considered and not built: at a few visits a
+  week the cache would be empty whenever someone arrives, and the search itself, a `POST`, stays
+  uncached either way. At around 100 visits a day it would pay off.
 - **Prices come from a cache of other people's searches.** Flights are the nearest dates someone
   searched, hotels a recent rate for one fixed week; see [etl.md](etl.md).

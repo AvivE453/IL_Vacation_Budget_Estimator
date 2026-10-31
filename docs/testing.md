@@ -33,6 +33,7 @@ migrations and seed files, never copied from the development data.
 | `vacation_budget` | Development; never touched by a test | By hand |
 | `vacation_budget_test` | pytest | At the start of every run; left in place afterwards for inspecting |
 | `vacation_budget_migrations_test` | `test_run_migrations.py` | Empty, created and dropped by each test |
+| `vacation_budget_restore_test` | `test_backup.py` | Empty, created and dropped by each restore test |
 | `vacation_budget_e2e` | Playwright | At the start of every run, with fixed data |
 
 A rebuild uses `DROP DATABASE ... WITH (FORCE)`, so a `psql` session left open on the old copy
@@ -73,12 +74,16 @@ don't care about (`TLV`, USD, collected now, seen the day it was collected). Tri
 | `test_queries.py` | The other read queries, against exact values; every seeded city and country has a Hebrew name |
 | `test_api.py` | The routes through `TestClient`: the full JSON of each response, 422s naming the field, 404 and 503, session scoping, the live call and its fallback |
 | `test_openapi.py` | `api/openapi.json` matches the code; the operationIds; the documented errors |
-| `test_db.py` | The API's connection pool: reuse, rollback on error, a dropped connection replaced, waiting for a free one |
-| `test_live_flights.py` | The live call's parsing; every failure comes back as `None` |
-| `test_flights_collector.py` | Retries (429 waits `X-Rate-Limit-Reset`, 5xx retried, 401 not), parsing, duplicates, the run's counters, a commit per destination |
-| `test_hotels_collector.py` | The SerpApi quota: never more searches than the account or the run allows; which cities go first; a commit per city |
+| `test_db.py` | The API's connection pool: reuse, rollback on error, a dropped connection replaced, an idle one the server closed replaced before use (a healthy one kept), waiting for a free one |
+| `test_lambda_handler.py` | The API as Lambda runs it: an API Gateway event through `api/lambda_handler.py`, and the session cookie there and back |
+| `test_lambda_jobs.py` | `etl/lambda_jobs.py`: the flight shards add up to a full run, each job gets its arguments, an unknown job or a collector's `SystemExit` fails with its message; each job's metrics line in Embedded Metric Format, none for a failed job; the alarms in `infra/alarms.tf` watch exactly the metrics the jobs print |
+| `test_config.py` | On Lambda the settings come from SSM Parameter Store (a fake client), before the constants read them |
+| `test_live_flights.py` | The live call's parsing; every failure comes back as `None`; the token goes in a header, not the URL |
+| `test_flights_collector.py` | Retries (429 waits `X-Rate-Limit-Reset`, 5xx retried, 401 not), parsing, duplicates, the run's counters, a commit per destination; the token goes in a header, not the URL |
+| `test_hotels_collector.py` | The SerpApi quota: never more searches than the account or the run allows (none for a budget of 0); which cities go first; a commit per city; a failed request's message never holds the key |
 | `test_loaders.py` | Deactivating a destination removed from the seed; the cleanup scripts |
 | `test_run_migrations.py` | The migration runner, on its own empty database and a copy of the migration files in `tmp_path` |
+| `test_backup.py` | The backup covers every table; a backup restored into an empty database round-trips every row, an insert after it gets a new id, columns are matched by name; a database with tables is refused |
 | `test_currency.py` | Currency conversion, with a fake cursor: the one file that needs no database |
 
 ### No network
@@ -169,22 +174,40 @@ the migrations, the loaders); the TypeScript ones live in `frontend/` with their
 
 ## CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml))
 
-GitHub Actions, on every push to any branch and by hand. Three jobs run in parallel:
+GitHub Actions, on every push to any branch and by hand. Four test jobs run in parallel:
 
 | Job | Steps |
 |---|---|
 | `test` | `uv sync --locked`, `ruff`, the migration and seed commands on a fresh `postgres:16` service, `pytest -v` |
 | `frontend` | `npm ci` with Node from `.nvmrc`, regenerate `schema.d.ts` and fail on a diff, `npm test`, `npm run build` |
 | `e2e` | Both stacks, Postgres, Google Chrome, `npx playwright test`; on failure, the traces as an artifact |
+| `terraform` | `terraform fmt -check`, then `init -backend=false` and `validate` on `infra/`: no AWS access, nothing is created |
 
 - Postgres starts as a service with a `pg_isready` health check, so the steps wait for it. It's on
   port 5432 there (`DB_URL` in the workflow); locally it's 5433.
 - `--locked` and `npm ci` fail when a lock file doesn't match its manifest.
 - **Pinned**: the runner (`ubuntu-24.04`, not `ubuntu-latest`), `astral-sh/setup-uv` (an exact
-  version: it publishes no major tag), Node (`.nvmrc`) and Postgres (16). GitHub's own actions
+  version: it publishes no major tag), `hashicorp/setup-terraform` and Terraform (exact versions,
+  the same Terraform as locally), Node (`.nvmrc`) and Postgres (16). GitHub's own actions
   are on their major tag (`@v7`). An upgrade gets its own commit.
 - Each job has a `timeout-minutes`, so a hung server stops the run in minutes, not hours.
-- CI holds no secrets: nothing in it calls Travelpayouts or SerpApi.
+- The test jobs hold no secrets: nothing in them calls Travelpayouts or SerpApi.
+
+**Deploy.** A fifth job, `deploy`, runs on `master` only, after the four above pass, and never two
+at once (a `concurrency` group). It builds the zip and the React app, then runs
+[scripts/deploy.sh](../scripts/deploy.sh): migrations and seed data on Neon, both Lambda functions
+(each checked to run the zip just built), the site, and
+[scripts/smoke_test.sh](../scripts/smoke_test.sh) against the live site (health, a search, an
+inner page on refresh), which turns the run red on a failure.
+
+- **AWS access**: an access key of the IAM user `vacation-budget-deploy` (`infra/deploy.tf`), whose
+  policy only ships code: update both functions' code, write to the site bucket, read Neon's
+  `DB_URL` from SSM. Not OIDC, which this AWS account type's organization policy forbids.
+- **The key is a secret of the GitHub environment `production`**, whose deployment branch rule
+  hands it only to runs on `master`, and only the deploy step has it in its environment: installing
+  and building, which run third-party code, happen in the step before. That job's actions are
+  pinned to a commit, not a tag.
+- **Neon's `DB_URL`** is masked in the log (`::add-mask::`), the password on its own too.
 
 ## Not covered
 

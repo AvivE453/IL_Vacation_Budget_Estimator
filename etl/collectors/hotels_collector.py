@@ -71,12 +71,22 @@ def fetch_hotels(city_query, check_in_date, check_out_date, next_page_token=None
         "currency": "USD",
         "gl": "us",
         "hl": "en",
-        "api_key": SERPAPI_KEY,
     }
     if next_page_token:
         params["next_page_token"] = next_page_token
-    resp = requests.get(SEARCH_URL, params=params, timeout=20)
-    resp.raise_for_status()
+    return serpapi_get(SEARCH_URL, params)
+
+
+# SerpApi takes the key only as a URL parameter, and a failed request's
+# message holds the URL, which ends up in the Lambda log (printed by main(),
+# or in the traceback). So the error is raised again with the key masked, and
+# "from None" leaves the original out of the traceback.
+def serpapi_get(url, params):
+    try:
+        resp = requests.get(url, params={**params, "api_key": SERPAPI_KEY}, timeout=20)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise type(e)(str(e).replace(SERPAPI_KEY, "<SERPAPI_KEY>")) from None
     return resp.json()
 
 
@@ -97,9 +107,7 @@ def fetch_hotel_properties(city_query, check_in_date, check_out_date):
 
 # Doesn't count against the search quota.
 def fetch_searches_left():
-    resp = requests.get(ACCOUNT_URL, params={"api_key": SERPAPI_KEY}, timeout=20)
-    resp.raise_for_status()
-    return resp.json()["total_searches_left"]
+    return serpapi_get(ACCOUNT_URL, {})["total_searches_left"]
 
 
 # The cities most in need of a refresh: never priced first, then oldest price.
@@ -185,6 +193,7 @@ def main(max_searches=DEFAULT_MAX_SEARCHES_PER_RUN):
 
     print(f"updated {n_updated} destinations "
           f"({n_skipped_no_results} had no priced results, {n_errors} request errors)")
+    return {"updated": n_updated, "skipped_no_results": n_skipped_no_results, "errors": n_errors}
 
 
 if __name__ == "__main__":

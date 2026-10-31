@@ -1,16 +1,17 @@
 # ETL
 
 The scripts that fill the database: reference data, flight prices, hotel prices, and the cleanup
-of rows that are no longer useful. They live in [etl/](../etl/) and are run by hand from the
-command line, each as a module (`uv run python -m etl.<folder>.<script>`).
+of rows that are no longer useful. They live in [etl/](../etl/). The collectors and the cleanups run
+on a schedule on AWS (below); every script also runs from the command line, as a module
+(`uv run python -m etl.<folder>.<script>`).
 
 ## The folders
 
 | Folder | What's in it | How often it runs |
 |---|---|---|
-| [common/](../etl/common/) | `config.py` (reads `.env`), `db.py` (one connection per run) | Imported, never run |
-| [loaders/](../etl/loaders/) | Migrations, reference data, cleanup scripts | Once, or when their input changes. Safe to rerun |
-| [collectors/](../etl/collectors/) | Flight prices, hotel prices | Over and over |
+| [common/](../etl/common/) | `config.py` (reads `.env`, or SSM on Lambda), `db.py` (one connection per run) | Imported, never run |
+| [loaders/](../etl/loaders/) | Migrations, reference data, cleanup scripts | Once, or when their input changes (the cleanups and exchange rates: every Sunday). Safe to rerun |
+| [collectors/](../etl/collectors/) | Flight prices, hotel prices | On a schedule: flights daily, hotels twice a month |
 | [tools/](../etl/tools/) | `discover_destinations` | By hand, when choosing new destinations |
 
 The loaders and the flights collector write differently on purpose. A loader upserts
@@ -25,7 +26,48 @@ or Ctrl+C partway through keeps what was collected. The API has its own pool
 (`config.py`, and the live flight search reuses the collector's parser).
 
 **Configuration** comes from environment variables, read from `.env` when that file exists:
-`DB_URL`, `TRAVELPAYOUTS_TOKEN` (and optional `TRAVELPAYOUTS_MARKER`), `SERPAPI_KEY`.
+`DB_URL`, `TRAVELPAYOUTS_TOKEN` (and optional `TRAVELPAYOUTS_MARKER`), `SERPAPI_KEY`. On Lambda
+there's no `.env`: with `SSM_PARAMETER_PATH` set, `config.py` first loads every SSM Parameter
+Store parameter under that path into the environment (`/vacation-budget/api/DB_URL` becomes
+`DB_URL`).
+
+**On Lambda** a scheduled job runs through one entry point, [lambda_jobs.py](../etl/lambda_jobs.py):
+the event names the job (`{"job": "flights", "shard": 0}`) and it calls that job's `main()`, the
+same one the command line runs. A full flights run takes about 9–11 minutes, close to Lambda's
+15-minute limit, so the schedule runs it as two shards of its months (`FLIGHT_SHARDS`: 0–3 and
+4–6); from the command line `main()` still collects all seven.
+
+**The schedule** (`job_schedules` in [infra/jobs.tf](../infra/jobs.tf), Israel time), run by
+EventBridge Scheduler:
+
+| Job | When |
+|---|---|
+| Flights, months 0–3, then 4–6 | Daily, 04:00 and 04:20 (about 6 and 3 minutes) |
+| Hotels | The 2nd and the 16th, 05:00, at most 103 searches each (206 of the 250 a month) |
+| Exchange rates | Sundays, 05:00 |
+| The three cleanups | Sundays, 05:10–05:20 |
+| Backup | Daily, 05:30, after all of the above |
+
+Nothing is retried, neither by the schedule nor by Lambda (which by default retries an
+asynchronous run twice): a second hotels run would spend the SerpApi quota again. A failure sends an
+email instead.
+
+**Alerts** ([infra/alarms.tf](../infra/alarms.tf)). The flights, hotels and backup jobs end with one
+log line in CloudWatch's Embedded Metric Format: JSON that CloudWatch turns into metrics
+(`FlightsInserted`, `HotelsUpdated`, `BackupsCompleted`, namespace
+`VacationBudget`, dimension `Job`), with no API call. CloudWatch alarms on them, and on Lambda's own
+`Errors`, email through SNS:
+
+- **a job failed**: it raised or timed out;
+- **a flights run inserted 0 rows**: every request failed (a revoked token), or Travelpayouts had
+  no new prices; the summary line's request errors tell which;
+- **a hotels run updated 0 destinations**: the same, for SerpApi;
+- **no flights run, or no backup, in 25 hours**: a run that never happened leaves no metric at
+  all, and these alarms count missing data as a failure (25, not 24: the night the clocks go back,
+  the runs are 25 hours apart). They email again when a run reports.
+
+A hotels run that never happened isn't caught: runs are two weeks apart, longer than an alarm can
+look back. The function's logs are kept 14 days.
 
 ## Setting up a database
 
@@ -80,7 +122,7 @@ search for given dates.
 For each destination it makes 14 calls: this month and the next six, each asked twice — returning
 the same month, and returning the month after. The second one is what collects a trip across a
 month boundary (28 Nov to 4 Dec), which a same-month query never returns. With 103 destinations a
-run is about 1,440 calls and takes about 11 minutes.
+run is about 1,440 calls and takes about 9–11 minutes.
 
 Each call asks for `currency=usd` (without it, many routes answer in roubles, which Frankfurter has
 no rate for) and `limit=1000`, the API's maximum. The busiest month seen so far returned 300
@@ -95,7 +137,9 @@ could succeed:
 - **5xx, connection errors, timeouts (15s):** waits 1 to 10 seconds, growing each attempt.
 - **Anything else** (a 401 for a bad token, say) fails at once.
 
-A call that still fails is counted as an error, and the run moves on to the next month pair.
+A call that still fails is counted as an error, its message printed, and the run moves on to the
+next month pair. The message holds the request's URL, so the token isn't in it: it goes in the
+`X-Access-Token` header.
 
 ### What it stores
 
@@ -145,6 +189,10 @@ uv run python -m etl.collectors.hotels_collector [--max-searches N]
 3. takes cities with no price first, then the oldest prices (`loaded_at`);
 4. commits after each city, because each one was a paid search.
 
+SerpApi takes its key only as a URL parameter, so both calls go through `serpapi_get`, which raises
+any request error again with the key masked: a failed call's message holds its URL, and it's
+printed or ends up in the traceback.
+
 A city that returns no priced hotels keeps its old price and is printed by name. It will be first
 in line again next run, which is what's wanted: no results means the search text is wrong (it
 happened with "Luxembourg", fixed by renaming it "Luxembourg City" in the seed).
@@ -159,11 +207,12 @@ SerpApi's default occupancy of two adults per room. So a hotel price is a recent
 not a price for the user's dates; the app multiplies it by the nights and rooms of the trip, and
 shows how old it is.
 
-Run it by hand, not on a schedule, and keep an eye on the monthly count.
+It runs on the 2nd and the 16th of each month: 206 searches, and any month-long quota period holds
+exactly two runs. A manual run on top of that spends the same quota.
 
 ## The cleanup scripts
 
-Each is one `DELETE`, run by hand:
+Each is one `DELETE`, run every Sunday by the schedule, or by hand:
 
 ```bash
 uv run python -m etl.loaders.cleanup_old_flights
@@ -204,4 +253,5 @@ judged by hand as an Israeli vacation destination before it's added to the seed 
   Tokyo and Milan are affected the same way.
 - **Hotel prices aren't seasonal.** Every city is quoted for the same week, so a summer trip is
   priced with the hotel rates of whenever the collector last ran.
-- **Collection is manual.** Nothing runs on a schedule; prices are as fresh as the last run.
+- **A missed run isn't retried.** If a scheduled job fails, it sends an email, and that day's
+  prices are missing until the next run (or a run by hand).

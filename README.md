@@ -11,16 +11,44 @@ identify places differently. Flights use airport codes (`BCN`), hotels use city 
 (`"Barcelona"`). A hand-curated `destinations` table maps both to one internal id, and every
 query joins through it. Missing data is shown to the user, never silently treated as zero.
 
+**Live:** https://d2r41mkrvtiz2x.cloudfront.net (Hebrew interface; AWS Lambda + CloudFront, the
+database on Neon).
+
 ## How it works
 
 | Layer | What it does |
 |---|---|
-| **ETL** (`etl/`) | Collects flight prices from the [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/), hotel prices from [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api), and exchange rates from [Frankfurter](https://www.frankfurter.dev). Run by hand. |
+| **ETL** (`etl/`) | Collects flight prices from the [Travelpayouts Data API](https://travelpayouts-data-api.readthedocs.io/), hotel prices from [SerpApi's Google Hotels API](https://serpapi.com/google-hotels-api), and exchange rates from [Frankfurter](https://www.frankfurter.dev). Runs on a schedule on AWS (flights daily). |
 | **Database** (`sql/`) | PostgreSQL 16, raw SQL with no ORM. Flight prices are append-only, so the price history is kept. |
 | **API** (`api/`, `app/`) | FastAPI, returns JSON. Interactive docs at `/docs` while it runs. |
 | **Frontend** (`frontend/`) | React 19 + TypeScript (Vite), a Hebrew right-to-left interface. Its API types are generated from the API's OpenAPI schema. |
 
-How each part is designed, in more depth: [docs/database.md](docs/database.md), [docs/etl.md](docs/etl.md), [docs/api.md](docs/api.md), [docs/frontend.md](docs/frontend.md), [docs/testing.md](docs/testing.md).
+How each part is designed, in more depth: [docs/database.md](docs/database.md), [docs/etl.md](docs/etl.md), [docs/api.md](docs/api.md), [docs/frontend.md](docs/frontend.md), [docs/testing.md](docs/testing.md), [docs/cloud.md](docs/cloud.md).
+
+## In the cloud
+
+Serverless on AWS, every resource in Terraform ([infra/](infra/)), with the database on Neon:
+
+```mermaid
+flowchart LR
+    browser([Browser]) --> cf[CloudFront]
+    cf -- "/api/*" --> apigw[API Gateway] --> api[Lambda: API]
+    cf -- "pages" --> site[(S3: React build)]
+    sched[EventBridge Scheduler] --> jobs[Lambda: collectors, backup]
+    api --> neon[(Neon Postgres)]
+    jobs --> neon
+    jobs --> backups[(S3: backups)]
+    jobs -. metrics .-> alarms[CloudWatch alarms] --> email([Email])
+```
+
+- **Data on autopilot**: flights collected daily, hotels twice a month, a backup to S3 every night,
+  and an email when a run fails or doesn't happen.
+- **Deploys**: a push to `master` that passes CI runs the migrations, ships both functions and the
+  site, then smoke-tests the live site.
+- **Cost**: $0 a month, inside the free tiers (Neon's free plan, AWS's Free plan credits).
+
+Why each service, the deploy, restoring a backup, and what each alarm means:
+[docs/cloud.md](docs/cloud.md).
 
 ## Running it
 
@@ -82,5 +110,6 @@ npx playwright test       # end-to-end, in Chrome against the real API and Postg
 ```
 
 The tests never touch the development database: each run builds its own from the migrations
-and seed files. CI ([GitHub Actions](.github/workflows/ci.yml)) runs all of them on every push.
+and seed files. CI ([GitHub Actions](.github/workflows/ci.yml)) runs all of them on every push,
+and deploys `master` once they pass.
 How the tests are built: [docs/testing.md](docs/testing.md).

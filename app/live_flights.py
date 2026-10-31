@@ -41,9 +41,10 @@ def fetch_live_flight_options(origin_iata, destination_iata, depart_date, return
                 "currency": "usd",
                 "sorting": "price",
                 "limit": RESULTS_PER_CALL,
-                "token": TRAVELPAYOUTS_TOKEN,
                 "marker": TRAVELPAYOUTS_MARKER,
             },
+            # Not a URL parameter: the warning below logs the error, which holds the URL.
+            headers={"X-Access-Token": TRAVELPAYOUTS_TOKEN},
             timeout=LIVE_TIMEOUT_SECONDS,
         )
         response.raise_for_status()

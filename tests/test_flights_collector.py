@@ -73,6 +73,22 @@ def test_bad_token_fails_without_retrying(monkeypatch):
     assert len(calls) == 1
 
 
+# A failed request's message holds its whole URL, and the collector prints it
+# to the Lambda log: the token goes in a header so it's never in the URL
+# (found by testing an alarm with a wrong token).
+def test_token_is_sent_in_a_header_not_the_url(monkeypatch):
+    monkeypatch.setattr(flights_collector, "TRAVELPAYOUTS_TOKEN", "secret-token")
+    sent = []
+    monkeypatch.setattr(
+        flights_collector.requests, "get", lambda *args, **kwargs: sent.append(kwargs) or FakeResponse(200)
+    )
+
+    flights_collector.fetch_round_trips("TLV", "BCN", "2030-06", "2030-06")
+
+    assert "secret-token" not in sent[0]["params"].values()
+    assert sent[0]["headers"] == {"X-Access-Token": "secret-token"}
+
+
 def test_call_that_returns_the_results_limit_is_counted(cur, monkeypatch):
     monkeypatch.setattr(flights_collector, "RESULTS_PER_CALL", 2)
     other_trip = {**ROUND_TRIP, "price": 350}
@@ -96,7 +112,7 @@ def test_each_leg_is_asked_for_its_own_month(monkeypatch):
     sent = []
     monkeypatch.setattr(
         flights_collector.requests, "get",
-        lambda url, params, timeout: sent.append(params) or FakeResponse(200, body={"data": []}),
+        lambda url, params, headers, timeout: sent.append(params) or FakeResponse(200, body={"data": []}),
     )
 
     flights_collector.fetch_round_trips("TLV", "BCN", "2030-06", "2030-07")

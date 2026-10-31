@@ -40,8 +40,8 @@ def fake_get(monkeypatch):
     calls = []
 
     def answer_with(result):
-        def get(url, params, timeout):
-            calls.append({"params": params, "timeout": timeout})
+        def get(url, params, timeout, headers=None):
+            calls.append({"params": params, "timeout": timeout, "headers": headers})
             if isinstance(result, Exception):
                 raise result
             return result
@@ -86,6 +86,18 @@ def test_asks_for_the_exact_dates_with_a_short_timeout(fake_get):
     assert calls[0]["params"]["departure_at"] == "2030-06-01"
     assert calls[0]["params"]["return_at"] == "2030-06-08"
     assert calls[0]["timeout"] == live_flights.LIVE_TIMEOUT_SECONDS
+
+
+# A failure is logged with the request's message, which holds its URL: the
+# token goes in a header so it never reaches the API's log.
+def test_token_is_sent_in_a_header_not_the_url(fake_get, monkeypatch):
+    monkeypatch.setattr(live_flights, "TRAVELPAYOUTS_TOKEN", "secret-token")
+    calls = fake_get(response(200, {"data": []}))
+
+    fetch()
+
+    assert "secret-token" not in calls[0]["params"].values()
+    assert calls[0]["headers"] == {"X-Access-Token": "secret-token"}
 
 
 def test_results_for_other_dates_are_dropped(fake_get):

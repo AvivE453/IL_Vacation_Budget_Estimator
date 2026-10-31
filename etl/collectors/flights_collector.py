@@ -81,9 +81,9 @@ def month_string(today, offset):
 # (depart_month, return_month) per call: each month on its own, and departing in
 # it while returning the next - a same-month query never returns a trip across
 # a month boundary (28 Nov -> 4 Dec), and those are about a quarter of the days.
-def target_month_pairs(today):
+def target_month_pairs(today, month_offsets=MONTH_OFFSETS):
     pairs = []
-    for n in MONTH_OFFSETS:
+    for n in month_offsets:
         month, next_month = month_string(today, n), month_string(today, n + 1)
         pairs += [(month, month), (month, next_month)]
     return pairs
@@ -99,10 +99,11 @@ def fetch_round_trips(origin, destination, depart_month, return_month):
             "departure_at": depart_month,
             "return_at": return_month,
             "currency": "usd",
-            "token": TRAVELPAYOUTS_TOKEN,
             "marker": TRAVELPAYOUTS_MARKER,
             "limit": RESULTS_PER_CALL,
         },
+        # Not a URL parameter: a failed request's message holds the URL, and it gets logged.
+        headers={"X-Access-Token": TRAVELPAYOUTS_TOKEN},
         timeout=15,
     )
     resp.raise_for_status()
@@ -187,7 +188,9 @@ def collect_destination_months(cur, destination_id, destination_iata, depart_mon
         counters["inserted"] += cur.rowcount
 
 
-def main():
+# The scheduled job collects a subset of the months per run (FLIGHT_SHARDS in
+# etl/lambda_jobs.py); the command line collects them all.
+def main(month_offsets=MONTH_OFFSETS):
     if not TRAVELPAYOUTS_TOKEN:
         raise SystemExit("TRAVELPAYOUTS_TOKEN is not set -- register at travelpayouts.com and set it in .env")
 
@@ -198,7 +201,7 @@ def main():
     with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         destinations = fetch_destinations(cur)
 
-        month_pairs = target_month_pairs(datetime.date.today())
+        month_pairs = target_month_pairs(datetime.date.today(), month_offsets)
         for dest in destinations:
             for depart_month, return_month in month_pairs:
                 collect_destination_months(
@@ -213,6 +216,7 @@ def main():
           f"{counters['skipped_no_search_date']} prices had no search date, "
           f"{counters['errors']} request errors, "
           f"{counters['hit_results_limit']} calls hit the {RESULTS_PER_CALL}-result limit)")
+    return counters
 
 
 if __name__ == "__main__":
